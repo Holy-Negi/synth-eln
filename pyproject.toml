@@ -32,3 +32,11 @@ dependencies = [
     "uv==0.11.19",
     "uvicorn==0.49.0",
 ]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+stubPath = "typings"

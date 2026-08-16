@@ -1,6 +1,7 @@
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.Draw import rdMolDraw2D
+from rdkit.Chem import AllChem
 
 # RDKitでSMILESからINCHIKeyやMolWtなどの物性情報を取得
 
@@ -25,3 +26,17 @@ def render_svg(smiles: str) -> str | None:
     drawer.FinishDrawing()
     svg = drawer.GetDrawingText()
     return svg
+
+def render_reaction_svg(reaction_smiles: str) -> str | None:
+    rxn = AllChem.ReactionFromSmarts(reaction_smiles, useSmiles=True)
+    if rxn is None:
+        return None
+    total_heavy = 0
+    for mol in list(rxn.GetReactants()) + list(rxn.GetAgents()) + list(rxn.GetProducts()):
+        total_heavy += mol.GetNumHeavyAtoms()
+    width = max(450, 25 * total_heavy)
+    drawer = rdMolDraw2D.MolDraw2DSVG(width, 150)
+    drawer.DrawReaction(rxn)
+    drawer.FinishDrawing()
+    svg_string = drawer.GetDrawingText()
+    return svg_string

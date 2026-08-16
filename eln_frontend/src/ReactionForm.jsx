@@ -7,6 +7,8 @@ function ReactionForm({ onCreated }) {
   const [date, setDate] = useState("");
   const [scale, setScale] = useState("");
   const [conc, setConc] = useState("");
+  const [temperature, setTemperature] = useState("");
+  const [durationH, setDurationH] = useState("");
   const [note, setNote] = useState("");
   const [components, setComponents] = useState([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "" }]);
 
@@ -20,6 +22,8 @@ function ReactionForm({ onCreated }) {
           date: new Date(date).toISOString(),   // yyyy-mm-dd → ISO日時
           scale: Number(scale),                 // 文字列→数値
           conc: Number(conc),
+          temperature: temperature === "" ? null : Number(temperature),
+          duration_h: durationH === "" ? null : Number(durationH),
           note: note || null,
           components: components.map((c) => ({
             name: c.name,
@@ -33,7 +37,8 @@ function ReactionForm({ onCreated }) {
       });
       if (!res.ok) { const err = await res.json(); throw new Error(JSON.stringify(err.detail)); }
       // フォームを初期化
-      setExpCode(""); setDate(""); setScale(""); setConc(""); setNote("");
+      setExpCode(""); setDate(""); setScale(""); setConc("");
+      setTemperature(""); setDurationH(""); setNote("");
       setComponents([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "" }]);
       onCreated();
     } catch (e) { alert(e.message); }
@@ -47,6 +52,8 @@ function ReactionForm({ onCreated }) {
         <TextField type="date" size="small" value={date} onChange={(e) => setDate(e.target.value)} />
         <TextField label="Scale (mmol)" size="small" value={scale} onChange={(e) => setScale(e.target.value)} />
         <TextField label="Conc (mol/L)" size="small" value={conc} onChange={(e) => setConc(e.target.value)} />
+        <TextField label="Temperature (°C)" size="small" value={temperature} onChange={(e) => setTemperature(e.target.value)} />
+        <TextField label="Time (h)" size="small" value={durationH} onChange={(e) => setDurationH(e.target.value)} />
         <TextField label="Note" size="small" value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
       <ComponentRowsEditor components={components} setComponents={setComponents} />

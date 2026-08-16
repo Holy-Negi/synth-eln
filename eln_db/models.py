@@ -40,6 +40,8 @@ class Reaction(Base):
     date: Mapped[datetime]
     scale: Mapped[float]
     conc: Mapped[float]
+    temperature: Mapped[float | None]
+    duration_h: Mapped[float | None]
     note: Mapped[str | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     components: Mapped[list["ReactionComponent"]] = relationship(

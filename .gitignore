@@ -9,6 +9,7 @@ wheels/
 # 仮想環境 / uv
 .venv/
 .python-version
+requirements.txt
 
 # ---------- 環境変数・機密情報 ----------
 # DB 認証情報など（eln_db/.env）は絶対にコミットしない
@@ -34,7 +35,7 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea/
-.code-workspace
+*.code-workspace
 .claude/
 
 # ---------- OS 生成ファイル ----------
@@ -53,3 +54,6 @@ PubChem/
 test/
 CLAUDE.md
 ER.dio
+eln_db/temp.py
+ELN_handoff.md
+PROJECT_STATUS.md

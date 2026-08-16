@@ -10,12 +10,14 @@ const fmt = (v, d) => (v == null ? "-" : v.toFixed(d));   // null は "-"、数�
 // ── 当量表の内容から「新しい反応」として複製登録するダイアログ ──
 function RegisterFromEquivalents({ open, onClose, sourceReaction, scale, onRegistered }) {
   const [expCode, setExpCode] = useState("");
+  const [yieldP, setYieldP] = useState("")
   const [date, setDate] = useState("");
 
   // ダイアログを開くたびに入力欄を初期化（日付は今日）
   useEffect(() => {
     if (open) {
       setExpCode("");
+      setYieldP("");
       setDate(new Date().toISOString().slice(0, 10));   // yyyy-mm-dd
     }
   }, [open]);
@@ -28,14 +30,18 @@ function RegisterFromEquivalents({ open, onClose, sourceReaction, scale, onRegis
         date: new Date(date).toISOString(),
         scale: Number(scale),                 // 当量表で入力したスケール
         conc: sourceReaction.conc,            // 濃度は元反応を引き継ぐ
+        temperature: sourceReaction.temperature === "" ? null : Number(sourceReaction.temperature),
+        duration_h: sourceReaction.duration_h === "" ? null : Number(sourceReaction.duration_h),
         note: `Cloned from ${sourceReaction.exp_code}`,
-        components: sourceReaction.components.map((c) => ({
-          smiles: c.compound.smiles,          // ネストした化合物から SMILES を取得
-          role: c.role,
-          equiv: c.equiv,
-          yield_percent: c.yield_percent ?? null,
-        })),
-      };
+        components: sourceReaction.components.map((c) => {
+          const isProduct = c.role === "product";
+          return {
+            smiles: c.compound.smiles,          // ネストした化合物から SMILES を取得
+            role: c.role,
+            equiv: c.equiv,
+            yield_percent: isProduct ? (yieldP === "" ? null : Number(yieldP)) : null,
+          };
+        })};
 
       const res = await fetch("http://localhost:8000/reactions", {
         method: "POST",
@@ -64,6 +70,8 @@ function RegisterFromEquivalents({ open, onClose, sourceReaction, scale, onRegis
         <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
           <TextField label="New exp code" size="small" value={expCode}
             onChange={(e) => setExpCode(e.target.value)} />
+          <TextField label="Yield (%)" size="small" value={yieldP}
+            onChange={(e) => setYieldP(e.target.value)} />
           <TextField type="date" size="small" value={date}
             onChange={(e) => setDate(e.target.value)} />
         </div>

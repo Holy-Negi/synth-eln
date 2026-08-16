@@ -18,9 +18,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Compound, Reaction, ReactionComponent
+from models import Compound, Reaction, ReactionComponent, Role
 from schemas import CompoundCreate, CompoundRead, ReactionRead, ReactionCreate, CompoundUpdate, ReactionUpdate, EquivalentRow
-from chemistry import compute_properties, render_svg
+from chemistry import compute_properties, render_svg, render_reaction_svg
 from crud import get_or_create_compound
 from stoichiometry import compute_equivalents
 import pubchempy as pcp
@@ -93,7 +93,7 @@ def delete_compound(compound_id: int, db: Session = Depends(get_db)):
 def create_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
     reaction = Reaction(
         exp_code=payload.exp_code, date=payload.date,
-        scale=payload.scale, conc=payload.conc, note=payload.note,
+        scale=payload.scale, conc=payload.conc, temperature=payload.temperature, duration_h=payload.duration_h, note=payload.note,
     )
     for c in payload.components:
         compound, _ = get_or_create_compound(db, c.smiles, c.name, c.density)
@@ -136,6 +136,8 @@ def update_reaction(reaction_id: int, payload: ReactionUpdate, db: Session = Dep
     reaction.date = payload.date
     reaction.scale = payload.scale
     reaction.conc = payload.conc
+    reaction.temperature = payload.temperature
+    reaction.duration_h = payload.duration_h
     reaction.note = payload.note
 
     # 成分は全消し→作り直し（cascade delete-orphan が古い行を削除）
@@ -180,6 +182,28 @@ def resolve_name(name: str):
 @app.get("/depict")
 def depict(smiles: str):
     svg = render_svg(smiles)
+    if svg is None:
+        raise HTTPException(422, "invalid SMILES")
+    return Response(content=svg, media_type="image/svg+xml")
+
+@app.get("/reactions/{reaction_id}/scheme")
+def reaction_scheme(reaction_id: int, db: Session=Depends(get_db)):
+    reaction = db.get(Reaction, reaction_id)
+    if reaction is None:
+        raise HTTPException(404, "reaction not found")
+    left = []
+    agents = []
+    right = []
+    agents_roles = [Role.reagent, Role.catalyst, Role.solvent]
+    for c in reaction.components:
+        if c.role == Role.reactant:
+            left.append(c.compound.smiles)
+        elif c.role in agents_roles:
+            agents.append(c.compound.smiles)
+        elif c.role == Role.product:
+            right.append(c.compound.smiles)
+    reaction_smiles = f"{'.'.join(left)}>{'.'.join(agents)}>{'.'.join(right)}"
+    svg = render_reaction_svg(reaction_smiles)
     if svg is None:
         raise HTTPException(422, "invalid SMILES")
     return Response(content=svg, media_type="image/svg+xml")

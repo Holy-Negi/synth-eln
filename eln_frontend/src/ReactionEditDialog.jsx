@@ -7,6 +7,8 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
   const [date, setDate] = useState("");
   const [scale, setScale] = useState("");
   const [conc, setConc] = useState("");
+  const [temperature, setTemperature] = useState("");
+  const [durationH, setDurationH] = useState("");
   const [note, setNote] = useState("");
   const [components, setComponents] = useState([]);
 
@@ -16,6 +18,8 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
       setDate(reaction.date ? reaction.date.slice(0, 10) : "");   // ISO → yyyy-mm-dd
       setScale(reaction.scale ?? "");
       setConc(reaction.conc ?? "");
+      setTemperature(reaction.temperature ?? "");
+      setDurationH(reaction.duration_h ?? "");
       setNote(reaction.note ?? "");
       setComponents(reaction.components.map((c) => ({
         smiles: c.compound.smiles ?? "",   // ネストした化合物からSMILESを取得
@@ -35,6 +39,8 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
           date: new Date(date).toISOString(),
           scale: Number(scale),
           conc: Number(conc),
+          temperature: temperature === "" ? null : Number(temperature),
+          duration_h: durationH === "" ? null : Number(durationH),
           note: note || null,
           components: components.map((c) => ({
             smiles: c.smiles, role: c.role,
@@ -57,6 +63,8 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
           <TextField type="date" size="small" value={date} onChange={(e) => setDate(e.target.value)} />
           <TextField label="Scale (mmol)" size="small" value={scale} onChange={(e) => setScale(e.target.value)} />
           <TextField label="Conc (mol/L)" size="small" value={conc} onChange={(e) => setConc(e.target.value)} />
+          <TextField label="Temperature (°C)" size="small" value={temperature} onChange={(e) => setTemperature(e.target.value)} />
+          <TextField label="Time (h)" size="small" value={durationH} onChange={(e) => setDurationH(e.target.value)} />
           <TextField label="Note" size="small" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
         <ComponentRowsEditor components={components} setComponents={setComponents} />

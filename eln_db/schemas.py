@@ -46,6 +46,8 @@ class ReactionCreate(BaseModel):
     date: datetime
     scale: float
     conc: float
+    temperature: float | None = None
+    duration_h: float | None = None
     note: str | None = None
     components: list[ReactionComponentCreate]
     # ネスト（入れ子）構造
@@ -65,6 +67,8 @@ class ReactionRead(BaseModel):
     date: datetime
     scale: float
     conc: float
+    temperature: float | None = None
+    duration_h: float | None = None
     note: str | None
     components: list[ReactionComponentRead]
     model_config = {"from_attributes": True}
@@ -74,6 +78,8 @@ class ReactionUpdate(BaseModel):
     date: datetime
     scale: float
     conc: float
+    temperature: float | None = None
+    duration_h: float | None = None
     note: str | None = None
     components: list[ReactionComponentCreate]
 

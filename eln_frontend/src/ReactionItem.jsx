@@ -15,10 +15,24 @@ function ReactionItem({ reaction, onEdit, onDelete }) {
       </div>
 
       <Collapse in={open}>
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+          <div style={{ flex: 2, overflowX: "auto" }}>
+            <img
+              src={`http://127.0.0.1:8000/reactions/${reaction.id}/scheme`}
+              alt={`scheme of ${reaction.exp_code}`}
+              style={{ height: 180 }}
+            />
+          </div>
+          <div style={{ flex: 1, alignSelf: "flex-end" }}>
+            Temperature : {reaction.temperature ?? "–"} °C<br />
+            Time : {reaction.duration_h ?? "–"} h<br />
+            Note: {reaction.note}
+          </div>
+        </div>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Name</TableCell><TableCell>Role</TableCell><TableCell>Equiv</TableCell>
+              <TableCell>Name</TableCell><TableCell>Role</TableCell><TableCell>Equiv</TableCell><TableCell></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
