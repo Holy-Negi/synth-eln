@@ -4,6 +4,7 @@ import ComponentRowsEditor from "./ComponentRowsEditor.jsx";
 
 function ReactionEditDialog({ reaction, onClose, onUpdated }) {
   const [expCode, setExpCode] = useState("");
+  const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [scale, setScale] = useState("");
   const [conc, setConc] = useState("");
@@ -15,6 +16,7 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
   useEffect(() => {
     if (reaction) {
       setExpCode(reaction.exp_code ?? "");
+      setTitle(reaction.title ?? "");
       setDate(reaction.date ? reaction.date.slice(0, 10) : "");   // ISO → yyyy-mm-dd
       setScale(reaction.scale ?? "");
       setConc(reaction.conc ?? "");
@@ -36,6 +38,7 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           exp_code: expCode,
+          title: title || null,
           date: new Date(date).toISOString(),
           scale: Number(scale),
           conc: Number(conc),
@@ -60,6 +63,7 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
       <DialogContent>
         <div style={{ display: "flex", gap: 8, margin: "8px 0", flexWrap: "wrap" }}>
           <TextField label="Exp code" size="small" value={expCode} onChange={(e) => setExpCode(e.target.value)} />
+          <TextField label="Title" size="small" style={{ minWidth: 260 }} value={title} onChange={(e) => setTitle(e.target.value)} />
           <TextField type="date" size="small" value={date} onChange={(e) => setDate(e.target.value)} />
           <TextField label="Scale (mmol)" size="small" value={scale} onChange={(e) => setScale(e.target.value)} />
           <TextField label="Conc (mol/L)" size="small" value={conc} onChange={(e) => setConc(e.target.value)} />

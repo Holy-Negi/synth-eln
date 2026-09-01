@@ -1,32 +1,56 @@
 import { useState, useEffect } from "react";
 import {
-  Select, MenuItem, TextField, Button,
+  Autocomplete, TextField, Button,
   Table, TableBody, TableCell, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from "@mui/material";
 
 const fmt = (v, d) => (v == null ? "-" : v.toFixed(d));   // null は "-"、数値は桁数指定
 
+// 指定した role の化合物名だけを取り出す
+const namesOf = (r, role) =>
+  r.components.filter((c) => c.role === role).map((c) => c.compound.name).filter(Boolean);
+
+// 反応式の生成
+const schemeText = (r) => {
+  const left = namesOf(r, "reactant").join(" + ");
+  const right = namesOf(r, "product").join(" + ");
+  return [left, right].filter(Boolean).join(" → ") || "(reactant / product 未登録)";
+};
+
+// Autocomplete の絞り込みに使う文字列
+const searchText = (r) =>
+  [
+    r.exp_code,
+    r.title,
+    r.date?.slice(0, 10),
+    r.note,
+    ...r.components.map((c) => c.compound.name),
+  ].filter(Boolean).join(" ").toLowerCase();
+
 // ── 当量表の内容から「新しい反応」として複製登録するダイアログ ──
 function RegisterFromEquivalents({ open, onClose, sourceReaction, scale, onRegistered }) {
   const [expCode, setExpCode] = useState("");
+  const [title, setTitle] = useState("");
   const [yieldP, setYieldP] = useState("")
   const [date, setDate] = useState("");
 
-  // ダイアログを開くたびに入力欄を初期化（日付は今日）
+  // ダイアログを開くたびに入力欄を初期化（日付は今日、title は元反応から引き継ぐ）
   useEffect(() => {
     if (open) {
       setExpCode("");
+      setTitle(sourceReaction?.title ?? "");
       setYieldP("");
       setDate(new Date().toISOString().slice(0, 10));   // yyyy-mm-dd
     }
-  }, [open]);
+  }, [open, sourceReaction]);
 
   const handleRegister = async () => {
     try {
       // 元反応の成分（SMILES・role・equiv）を土台に、scale だけ当量表の値に差し替える
       const body = {
         exp_code: expCode,
+        title: title || null,
         date: new Date(date).toISOString(),
         scale: Number(scale),                 // 当量表で入力したスケール
         conc: sourceReaction.conc,            // 濃度は元反応を引き継ぐ
@@ -70,6 +94,8 @@ function RegisterFromEquivalents({ open, onClose, sourceReaction, scale, onRegis
         <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
           <TextField label="New exp code" size="small" value={expCode}
             onChange={(e) => setExpCode(e.target.value)} />
+          <TextField label="Title" size="small" value={title} style={{ minWidth: 220 }}
+            onChange={(e) => setTitle(e.target.value)} />
           <TextField label="Yield (%)" size="small" value={yieldP}
             onChange={(e) => setYieldP(e.target.value)} />
           <TextField type="date" size="small" value={date}
@@ -88,7 +114,7 @@ function RegisterFromEquivalents({ open, onClose, sourceReaction, scale, onRegis
 // ── 当量表本体 ──
 function StoichiometricTable() {
   const [reactions, setReactions] = useState([]);
-  const [reactionId, setReactionId] = useState("");
+  const [selectedReaction, setSelectedReaction] = useState(null);   // id ではなく反応オブジェクトを保持
   const [scale, setScale] = useState("");
   const [rows, setRows] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,12 +126,16 @@ function StoichiometricTable() {
 
   useEffect(() => { fetchReactions(); }, []);
 
-  // 選択中の反応オブジェクト（成分の SMILES を持っている）
-  const selectedReaction = reactions.find((r) => r.id === reactionId) || null;
+  // 反応を選んだとき: 前の計算結果を消し、scale 未入力なら元反応の値を初期値として入れる
+  const handleSelect = (reaction) => {
+    setSelectedReaction(reaction);
+    setRows([]);
+    if (reaction && scale === "") setScale(String(reaction.scale));
+  };
 
   const handleCompute = async () => {
     try {
-      const url = `http://localhost:8000/reactions/${reactionId}/equivalents?scale=${encodeURIComponent(scale)}`;
+      const url = `http://localhost:8000/reactions/${selectedReaction.id}/equivalents?scale=${encodeURIComponent(scale)}`;
       const res = await fetch(url);
       if (!res.ok) {
         const err = await res.json();
@@ -120,16 +150,56 @@ function StoichiometricTable() {
   return (
     <div style={{ border: "1px solid #ccc", padding: 12, marginTop: 24 }}>
       <h2>Stoichiometric table</h2>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <Select size="small" value={reactionId} displayEmpty
-          onChange={(e) => setReactionId(e.target.value)} style={{ minWidth: 160 }}>
-          <MenuItem value="" disabled>Select reaction</MenuItem>
-          {reactions.map((r) => <MenuItem key={r.id} value={r.id}>{r.exp_code}</MenuItem>)}
-        </Select>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <Autocomplete
+          options={reactions}
+          value={selectedReaction}
+          onChange={(e, v) => handleSelect(v)}
+          // 選択後に入力欄へ表示される文字列
+          getOptionLabel={(r) => `${r.exp_code}${r.title ? ` — ${r.title}` : ""}`}
+          // value と option の同一判定（オブジェクト比較だと再取得後に一致しなくなるため id で比べる）
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          // 空白区切りの AND 検索。"suzuki 08-" のように複数語で絞り込める
+          filterOptions={(opts, { inputValue }) => {
+            const terms = inputValue.trim().toLowerCase().split(/\s+/).filter(Boolean);
+            if (terms.length === 0) return opts;
+            return opts.filter((r) => {
+              const hay = searchText(r);
+              return terms.every((t) => hay.includes(t));
+            });
+          }}
+          // 候補1件の見た目: 見出し + 反応式の文字要約 + 反応式SVGサムネイル
+          renderOption={(props, r) => {
+            const { key, ...rest } = props;   // MUI v9 は props に key を含むので分けて渡す
+            return (
+              <li key={key} {...rest} style={{ display: "block", padding: "8px 12px" }}>
+                <div style={{ fontWeight: 600 }}>
+                  {r.exp_code}{r.title ? ` — ${r.title}` : ""}
+                  <span style={{ float: "right", opacity: 0.6, fontWeight: 400 }}>
+                    {r.date?.slice(0, 10)}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.85em", opacity: 0.8 }}>{schemeText(r)}</div>
+                <img
+                  src={`http://localhost:8000/reactions/${r.id}/scheme`}
+                  alt={`scheme of ${r.exp_code}`}
+                  loading="lazy"                                   // 表示された候補の分だけ取得する
+                  style={{ height: 64, marginTop: 4, background: "#fff", borderRadius: 4 }}
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}   // 描画失敗時は隠す
+                />
+              </li>
+            );
+          }}
+          renderInput={(params) => (
+            <TextField {...params} label="Reaction (code / title / compound)" size="small" />
+          )}
+          sx={{ minWidth: 420 }}
+          slotProps={{ listbox: { style: { maxHeight: 420 } } }}
+        />
         <TextField label="Scale (mmol)" size="small" value={scale}
           onChange={(e) => setScale(e.target.value)} />
         <Button variant="contained" onClick={handleCompute}
-          disabled={!reactionId || !scale}>Compute</Button>
+          disabled={!selectedReaction || !scale}>Compute</Button>
       </div>
 
       {rows.length > 0 && (

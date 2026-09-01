@@ -33,7 +33,8 @@ function ReactionTable() {
   return (
     <>
       <ReactionForm onCreated={fetchReactions} />
-      <TextField label="Search reactions" size="small" value={query}
+      {/* サーバ側で exp_code / title / note を横断検索する */}
+      <TextField label="Search (code / title / note)" size="small" value={query}
         onChange={(e) => setQuery(e.target.value)} />
       {loading ? <p>Loading...</p> : (
         reactions.map((r) => (

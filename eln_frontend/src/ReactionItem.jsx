@@ -8,7 +8,12 @@ function ReactionItem({ reaction, onEdit, onDelete }) {
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div onClick={() => setOpen(!open)} style={{ cursor: "pointer", flex: 1 }}>
-          <h3 style={{ margin: 0 }}>{open ? "▼" : "▶"} {reaction.exp_code}</h3>
+          <h3 style={{ margin: 0 }}>
+            {open ? "▼" : "▶"} {reaction.exp_code}
+            {reaction.title && (
+              <span style={{ fontWeight: 400, opacity: 0.85 }}> — {reaction.title}</span>
+            )}
+          </h3>
         </div>
         <Button onClick={() => onEdit(reaction)}>Edit</Button>
         <Button color="error" onClick={() => onDelete(reaction.id)}>Delete</Button>

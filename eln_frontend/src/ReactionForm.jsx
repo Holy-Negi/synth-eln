@@ -4,6 +4,7 @@ import ComponentRowsEditor from "./ComponentRowsEditor.jsx";
 
 function ReactionForm({ onCreated }) {
   const [expCode, setExpCode] = useState("");
+  const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [scale, setScale] = useState("");
   const [conc, setConc] = useState("");
@@ -19,6 +20,7 @@ function ReactionForm({ onCreated }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           exp_code: expCode,
+          title: title || null,
           date: new Date(date).toISOString(),   // yyyy-mm-dd → ISO日時
           scale: Number(scale),                 // 文字列→数値
           conc: Number(conc),
@@ -37,7 +39,7 @@ function ReactionForm({ onCreated }) {
       });
       if (!res.ok) { const err = await res.json(); throw new Error(JSON.stringify(err.detail)); }
       // フォームを初期化
-      setExpCode(""); setDate(""); setScale(""); setConc("");
+      setExpCode(""); setTitle(""); setDate(""); setScale(""); setConc("");
       setTemperature(""); setDurationH(""); setNote("");
       setComponents([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "" }]);
       onCreated();
@@ -49,6 +51,8 @@ function ReactionForm({ onCreated }) {
       <h3>New reaction</h3>
       <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         <TextField label="Exp code" size="small" value={expCode} onChange={(e) => setExpCode(e.target.value)} />
+        {/* title は検索の主キーになるので、反応名や条件を自由に書いておく */}
+        <TextField label="Title" size="small" style={{ minWidth: 260 }} value={title} onChange={(e) => setTitle(e.target.value)} />
         <TextField type="date" size="small" value={date} onChange={(e) => setDate(e.target.value)} />
         <TextField label="Scale (mmol)" size="small" value={scale} onChange={(e) => setScale(e.target.value)} />
         <TextField label="Conc (mol/L)" size="small" value={conc} onChange={(e) => setConc(e.target.value)} />

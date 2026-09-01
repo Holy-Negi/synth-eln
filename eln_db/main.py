@@ -15,7 +15,7 @@
 #       return オブジェクト
 from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Compound, Reaction, ReactionComponent, Role
@@ -92,7 +92,7 @@ def delete_compound(compound_id: int, db: Session = Depends(get_db)):
 @app.post("/reactions", response_model=ReactionRead, status_code=201)
 def create_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
     reaction = Reaction(
-        exp_code=payload.exp_code, date=payload.date,
+        exp_code=payload.exp_code, title=payload.title, date=payload.date,
         scale=payload.scale, conc=payload.conc, temperature=payload.temperature, duration_h=payload.duration_h, note=payload.note,
     )
     for c in payload.components:
@@ -113,9 +113,16 @@ def create_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
 
 @app.get("/reactions", response_model=list[ReactionRead])
 def list_reaction(q: str | None = None, db: Session = Depends(get_db)):
-    stmt = select(Reaction)
+    # date 降順（新しい実験が上）。日付が同じ場合は id の新しい順で安定させる
+    stmt = select(Reaction).order_by(Reaction.date.desc(), Reaction.id.desc())
     if q:
-        stmt = stmt.where(Reaction.exp_code.ilike(f"%{q}%"))
+        # exp_code だけでなく title・note も対象にする（or_ でOR条件を組む）
+        like = f"%{q}%"
+        stmt = stmt.where(or_(
+            Reaction.exp_code.ilike(like),
+            Reaction.title.ilike(like),
+            Reaction.note.ilike(like),
+        ))
     return db.scalars(stmt).all()
 
 @app.get("/reactions/{reaction_id}", response_model=ReactionRead)
@@ -133,6 +140,7 @@ def update_reaction(reaction_id: int, payload: ReactionUpdate, db: Session = Dep
 
     # 単一値の更新
     reaction.exp_code = payload.exp_code
+    reaction.title = payload.title
     reaction.date = payload.date
     reaction.scale = payload.scale
     reaction.conc = payload.conc

@@ -43,6 +43,7 @@ class ReactionComponentCreate(BaseModel):
     
 class ReactionCreate(BaseModel):
     exp_code: str
+    title: str | None = None
     date: datetime
     scale: float
     conc: float
@@ -64,6 +65,7 @@ class ReactionComponentRead(BaseModel):
 class ReactionRead(BaseModel):
     id: int
     exp_code: str
+    title: str | None = None
     date: datetime
     scale: float
     conc: float
@@ -75,6 +77,7 @@ class ReactionRead(BaseModel):
 
 class ReactionUpdate(BaseModel):
     exp_code: str
+    title: str | None = None
     date: datetime
     scale: float
     conc: float

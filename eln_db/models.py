@@ -37,6 +37,7 @@ class Reaction(Base):
     __tablename__ = "reactions"
     id: Mapped[int] = mapped_column(primary_key=True)
     exp_code: Mapped[str] = mapped_column(unique=True)
+    title: Mapped[str | None]   # 人間が覚えている名前（例: "鈴木カップリング 条件検討3"）
     date: Mapped[datetime]
     scale: Mapped[float]
     conc: Mapped[float]
