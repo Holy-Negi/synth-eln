@@ -19,7 +19,7 @@ dependencies = [
     "markupsafe==3.0.3",
     "numpy==2.4.6",
     "pillow==12.2.0",
-    "psycopg2==2.9.12",
+    "psycopg2-binary==2.9.12",
     "pubchempy>=1.0.5",
     "pydantic==2.13.4",
     "pydantic-core==2.46.4",

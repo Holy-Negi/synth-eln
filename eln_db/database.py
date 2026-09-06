@@ -9,8 +9,15 @@ load_dotenv()
 
 username = os.getenv("SQL_USERNAME")
 password = os.getenv("SQL_PASSWORD")
+host = os.getenv("SQL_HOST", "localhost")
+port = os.getenv("SQL_PORT", "5432")
+dbname = os.getenv("SQL_DATABASE", "eln_db")
+echo = os.getenv("SQL_ECHO", "0") == "1"
 
-engine = create_engine(f"postgresql://{username}:{password}@localhost:5432/eln_db", echo=True)
+engine = create_engine(
+    f"postgresql://{username}:{password}@{host}:{port}/{dbname}",
+    echo=echo,
+)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
