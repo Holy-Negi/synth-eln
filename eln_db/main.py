@@ -32,7 +32,7 @@ from schemas import (
     EquivalentRow
 )
 from chemistry import (
-    compute_properties, render_svg, render_reaction_svg,
+    compute_properties, render_svg, render_reaction_svg, largest_fragment_smiles,
     FUNCTIONAL_GROUPS
 )
 from search import SearchQueryError, resolve_patterns, filter_compounds, filter_reactions
@@ -257,7 +257,8 @@ def reaction_scheme(reaction_id: int, db: Session=Depends(get_db)):
         if c.role == Role.reactant:
             left.append(c.compound.smiles)
         elif c.role in agents_roles:
-            agents.append(c.compound.smiles)
+            # 矢印の上に描く成分は、水和物・対イオンを除いた本体のみにする
+            agents.append(largest_fragment_smiles(c.compound.smiles))
         elif c.role == Role.product:
             right.append(c.compound.smiles)
     reaction_smiles = f"{'.'.join(left)}>{'.'.join(agents)}>{'.'.join(right)}"
