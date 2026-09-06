@@ -1,69 +1,74 @@
 import { useState, useEffect, useCallback } from "react";
-/*  
-  reactパッケージからuseStateライブラリとuseEffectライブラリをインポート
-  コンポーネントに状態や副作用をもたせることのできるライブラリ
-  取得した値を保持したり、コンポーネントの表示時に別の操作を行ったりすることができる
-*/
 import CompoundEditDialog from "./CompoundEditDialog.jsx";
 import CompoundForm from "./CompoundForm.jsx";
+import StructureSearchBar from "./StructureSearchBar.jsx";
+import { buildUrl, fetchJson } from "./api.js";
 import {
-    Button,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField
-} from '@mui/material';
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
 
 function CompoundTable() {
-    const [compounds, setCompounds] = useState([]);  // 取得した一覧
-    const [loading, setLoading] = useState(true); // 初期値は引数
-    const [query, setQuery] = useState("");
-    const [editing, setEditing] = useState(null);
-    // useState は [現在の値, 更新関数] という配列を返す
-    // ↑ これを1行で書いたのが [compounds, setCompounds] = useState([])
-    const fetchCompounds = async () => {
-      const url = query
-        ? `http://localhost:8000/compounds?q=${encodeURIComponent(query)}`
-        : "http://localhost:8000/compounds";
-      const res = await fetch(url);
-      const data = await res.json();
+  const [compounds, setCompounds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  // 検索条件は1つの state にまとめる
+  const [search, setSearch] = useState({ q: "", substructure: "", fg: "" });
+  const [editing, setEditing] = useState(null);
+
+  const fetchCompounds = async () => {
+    setLoading(true);
+    const url = buildUrl("/compounds", search);
+    try {
+      const data = await fetchJson(url);
       setCompounds(data);
+    } catch (e) {
+      alert(e.message);
+      setCompounds([]);
+    } finally {
       setLoading(false);
-    };
-  
-    useEffect(() => { fetchCompounds() }, [query]);
-    // useEffect(function, []) ← マウント（画面表示）時に関数functionを1回だけ実行する
-    // 2つ目の引数は依存配列といい、依存配列の中身（関数、つまりquery）が変わるごとにfunctionを実行する
-    
-    const handleDelete = async (id) => {
-      if (!window.confirm("Are you sure you want to delete the data?")) {
-        return; // ここで関数を抜ける
+    }
+  };
+
+  // 依存配列には search の中身を個別に並べる。
+  // オブジェクトのまま置くと毎レンダー別物と判定されて無限ループになる
+  useEffect(() => {
+    fetchCompounds();
+  }, [search.q, search.substructure, search.fg]);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete the data?")) {
+      return;
+    }
+    try {
+      const res = await fetch(`http://localhost:8000/compounds/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail);
       }
-      try {
-        const res = await fetch(`http://localhost:8000/compounds/${id}`, {
-          method: "DELETE",
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail)
-        };
-        await fetchCompounds();
-      } catch (e) {
-        alert(e.message);
-      }
-    };
+      await fetchCompounds();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
 
   return (
     <>
       <CompoundForm onCreated={fetchCompounds} />
-      <TextField
-        label="Search compounds" size="small" value={query}
-        onChange={(e) => setQuery(e.target.value)} // 入力のたびにqueryを更新
+      <StructureSearchBar
+        value={search}
+        onChange={setSearch}
+        textLabel="Search compounds (name)"
       />
-      {loading ? <p>Loading...</p> : (
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
         <TableContainer>
           <Table>
             <TableHead>
@@ -77,15 +82,21 @@ function CompoundTable() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {compounds.map((c) => ( // 配列を行に変換
+              {compounds.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell>{c.smiles && (
-                    <img
-                      src={`http://localhost:8000/depict?smiles=${encodeURIComponent(c.smiles)}`}
-                      alt="structure"
-                      style={{ width: 80, maxWidth: '100%', height: 'auto'}}
-                    />
-                  )}</TableCell>
+                  <TableCell>
+                    {c.smiles && (
+                      <img
+                        src={`http://localhost:8000/depict?smiles=${encodeURIComponent(c.smiles)}`}
+                        alt="structure"
+                        style={{
+                          width: 80,
+                          maxWidth: "100%",
+                          height: "auto",
+                        }}
+                      />
+                    )}
+                  </TableCell>
                   <TableCell>{c.name}</TableCell>
                   <TableCell>{c.mw?.toFixed(2)}</TableCell>
                   <TableCell>{c.logp?.toFixed(2)}</TableCell>
@@ -93,7 +104,9 @@ function CompoundTable() {
                     <Button onClick={() => setEditing(c)}>Edit</Button>
                   </TableCell>
                   <TableCell>
-                    <Button color="error" onClick={() => handleDelete(c.id)}>Delete</Button>
+                    <Button color="error" onClick={() => handleDelete(c.id)}>
+                      Delete
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -109,9 +122,5 @@ function CompoundTable() {
     </>
   );
 }
-  // compounds.map(function): 関数functionを実行することで配列compoundsを書き換える
-  // Reactが配列を実際のHTMLに展開する
 
 export default CompoundTable;
-// 他のファイルで使用できるように定義した関数CompoundTableをエクスポートする
-// defaultエクスポートは、1ファイルに1つだけ指定でき、インポートの際には好きな名前をつけられる

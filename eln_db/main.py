@@ -8,24 +8,44 @@
 #   /reactions        (GET/POST)       反応の一覧取得・新規登録
 #   /reactions/{id}   (GET/PUT/DELETE) 反応1件の取得・更新・削除
 #   /reactions/{id}/equivalents        当量計算
+#   /functional-groups (GET)           官能基プリセット一覧
+#
+#   構造検索は /compounds と /reactions のクエリパラメータで行う:
+#     ?substructure=<SMARTS または SMILES>   自由入力の部分構造
+#     ?fg=<官能基プリセット名>                例: ?fg=carboxylic_acid
+#     ?role=<reactant|product|...>           /reactions のみ。役割を限定して構造検索
 #
 #   @app.get("/パス", response_model=返すデータの型)
 #   def 関数名(payload: 入力の型, db: Session = Depends(get_db)):
 #       ...
 #       return オブジェクト
-from fastapi import FastAPI, Depends, HTTPException, Response
+from fastapi import FastAPI, Depends, HTTPException, Response, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from database import get_db
 from models import Compound, Reaction, ReactionComponent, Role
-from schemas import CompoundCreate, CompoundRead, ReactionRead, ReactionCreate, CompoundUpdate, ReactionUpdate, EquivalentRow
-from chemistry import compute_properties, render_svg, render_reaction_svg
+from schemas import (
+    CompoundCreate, CompoundRead, CompoundUpdate,
+    ReactionRead, ReactionCreate, ReactionUpdate,
+    EquivalentRow
+)
+from chemistry import (
+    compute_properties, render_svg, render_reaction_svg,
+    FUNCTIONAL_GROUPS
+)
+from search import SearchQueryError, resolve_patterns, filter_compounds, filter_reactions
 from crud import get_or_create_compound
 from stoichiometry import compute_equivalents
 import pubchempy as pcp
 
 app = FastAPI()
+
+@app.exception_handler(SearchQueryError)
+def handle_search_query_error(request: Request, exc: SearchQueryError):
+    """search.py が投げた SearchQueryError を HTTP 422 に翻訳する"""
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 @app.get("/health")
 def health():
@@ -44,13 +64,25 @@ def create_compound(payload: CompoundCreate, db: Session = Depends(get_db)):
     db.refresh(compound)
     return compound
 
+@app.get("/functional-groups")
+def list_functional_groups():
+    """官能基プリセットの一覧を返す"""
+    return FUNCTIONAL_GROUPS
+
 @app.get("/compounds", response_model=list[CompoundRead])
-def list_compound(q: str | None = None, db: Session = Depends(get_db)):
+def list_compound(q: str | None = None,
+                  substructure: str | None = None,
+                  fg: str | None = None,
+                  db: Session = Depends(get_db)):
+    """化合物を一覧する。q は名前の部分一致、substructure / fg は部分構造検索"""
     stmt = select(Compound)
     if q:
+        # ilike は大文字小文字を区別しない部分一致
         stmt = stmt.where(Compound.name.ilike(f"%{q}%"))
-        # ilikeはPostgreSQLの大文字小文字を無視する部分一致検索
-    return db.scalars(stmt).all()
+    compounds = db.scalars(stmt).all()
+    # substructure と fg は AND 条件
+    patterns = resolve_patterns(substructure, fg)
+    return filter_compounds(compounds, patterns)
 
 @app.get("/compounds/{compound_id}", response_model=CompoundRead)
 def get_compound(compound_id: int, db: Session = Depends(get_db)):
@@ -84,7 +116,7 @@ def delete_compound(compound_id: int, db: Session = Depends(get_db)):
     if obj is None:
         raise HTTPException(404, "compound not found")
     count = db.scalar(select(func.count()).select_from(ReactionComponent).where(ReactionComponent.compound_id == compound_id))
-    if count > 0:
+    if (count or 0) > 0:
         raise HTTPException(409, detail=f"compound is used in {count} reaction component(s)")
     db.delete(obj)
     db.commit()
@@ -112,18 +144,36 @@ def create_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
     return reaction
 
 @app.get("/reactions", response_model=list[ReactionRead])
-def list_reaction(q: str | None = None, db: Session = Depends(get_db)):
-    # date 降順（新しい実験が上）。日付が同じ場合は id の新しい順で安定させる
-    stmt = select(Reaction).order_by(Reaction.date.desc(), Reaction.id.desc())
+def list_reaction(q: str | None = None,
+                  substructure: str | None = None,
+                  fg: str | None = None,
+                  role: Role | None = None,
+                  db: Session = Depends(get_db)):
+    """反応を一覧する
+
+    q は exp_code / title / note の部分一致。substructure / fg は成分の部分構造検索で、
+    role を指定すると判定対象の成分をその役割に限定する。
+    """
+    # components とその compound を先読みし、フィルタ時の N+1 クエリを避ける
+    stmt = (
+        select(Reaction)
+        .options(
+            selectinload(Reaction.components).selectinload(ReactionComponent.compound)
+        )
+        # 新しい実験が上。同日は id の降順で安定させる
+        .order_by(Reaction.date.desc(), Reaction.id.desc())
+    )
     if q:
-        # exp_code だけでなく title・note も対象にする（or_ でOR条件を組む）
         like = f"%{q}%"
         stmt = stmt.where(or_(
             Reaction.exp_code.ilike(like),
             Reaction.title.ilike(like),
             Reaction.note.ilike(like),
         ))
-    return db.scalars(stmt).all()
+    reactions = db.scalars(stmt).all()
+    # substructure と fg は AND 条件
+    patterns = resolve_patterns(substructure, fg)
+    return filter_reactions(reactions, patterns, role)
 
 @app.get("/reactions/{reaction_id}", response_model=ReactionRead)
 def get_reaction(reaction_id: int, db: Session = Depends(get_db)):

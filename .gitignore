@@ -1,5 +1,6 @@
 # ---------- Python ----------
 __pycache__/
+typings/
 *.py[oc]
 build/
 dist/
@@ -37,6 +38,8 @@ pnpm-debug.log*
 .idea/
 *.code-workspace
 .claude/
+CLAUDE.md
+AGENTS.md
 
 # ---------- OS 生成ファイル ----------
 .DS_Store
@@ -52,7 +55,6 @@ htmlcov/
 # --------- その他 ----------------
 PubChem/
 test/
-CLAUDE.md
 ER.dio
 eln_db/temp.py
 ELN_handoff.md
