@@ -14,7 +14,8 @@ import {
   DialogActions,
 } from "@mui/material";
 import StructureSearchBar from "./StructureSearchBar.jsx";
-import { buildUrl, fetchJson } from "./api.js";
+import { API_BASE, buildUrl, fetchJson } from "./api.js";
+import { useToast } from "./useToast.js";
 
 const fmt = (v, d) => (v == null ? "-" : v.toFixed(d)); // null は "-"、数値は桁数指定
 
@@ -55,6 +56,7 @@ function RegisterFromEquivalents({
   scale,
   onRegistered,
 }) {
+  const { showError, showSuccess } = useToast();
   const [expCode, setExpCode] = useState("");
   const [title, setTitle] = useState("");
   const [yieldP, setYieldP] = useState("");
@@ -103,7 +105,7 @@ function RegisterFromEquivalents({
         }),
       };
 
-      const res = await fetch("http://localhost:8000/reactions", {
+      const res = await fetch(`${API_BASE}/reactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -114,9 +116,9 @@ function RegisterFromEquivalents({
       }
       onRegistered(); // 親に一覧を再取得させる
       onClose();
-      alert("登録しました");
+      showSuccess("登録しました");
     } catch (e) {
-      alert(e.message);
+      showError(e.message);
     }
   };
 
@@ -174,6 +176,7 @@ function RegisterFromEquivalents({
 
 // ── 当量表本体 ──
 function StoichiometricTable() {
+  const { showError } = useToast();
   const [reactions, setReactions] = useState([]);
   const [selectedReaction, setSelectedReaction] = useState(null); // id ではなく反応オブジェクトを保持
   const [scale, setScale] = useState("");
@@ -192,7 +195,7 @@ function StoichiometricTable() {
       const data = await fetchJson(buildUrl("/reactions", search));
       setReactions(data);
     } catch (e) {
-      alert(e.message);
+      showError(e.message);
       // 古い候補が残って誤選択されないよう空にする
       setReactions([]);
     }
@@ -213,7 +216,7 @@ function StoichiometricTable() {
 
   const handleCompute = async () => {
     try {
-      const url = `http://localhost:8000/reactions/${selectedReaction.id}/equivalents?scale=${encodeURIComponent(scale)}`;
+      const url = `${API_BASE}/reactions/${selectedReaction.id}/equivalents?scale=${encodeURIComponent(scale)}`;
       const res = await fetch(url);
       if (!res.ok) {
         const err = await res.json();
@@ -221,7 +224,7 @@ function StoichiometricTable() {
       }
       setRows(await res.json());
     } catch (e) {
-      alert(e.message);
+      showError(e.message);
     }
   };
 
@@ -291,7 +294,7 @@ function StoichiometricTable() {
                   {schemeText(r)}
                 </div>
                 <img
-                  src={`http://localhost:8000/reactions/${r.id}/scheme`}
+                  src={`${API_BASE}/reactions/${r.id}/scheme`}
                   alt={`scheme of ${r.exp_code}`}
                   loading="lazy" // 表示された候補の分だけ取得する
                   style={{

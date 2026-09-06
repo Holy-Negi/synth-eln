@@ -1,8 +1,11 @@
 import { TextField, Select, MenuItem, Button } from "@mui/material";
+import { useToast } from "./useToast.js";
+import { API_BASE } from "./api.js";
 
 const ROLES = ["reactant", "reagent", "solvent", "catalyst", "product"];
 
 function ComponentRowsEditor({ components, setComponents }) {
+  const { showError } = useToast();
   // [...配列, 新しい配列]：配列に新しい配列を末尾に追加する
   // componentsを更新することでReactに再描画させる
   const addRow = () =>
@@ -20,7 +23,7 @@ function ComponentRowsEditor({ components, setComponents }) {
   const handleResolve = async (i) => {
     try {
       const name = components[i].name
-      const res = await fetch(`http://localhost:8000/resolve?name=${encodeURIComponent(name)}`)
+      const res = await fetch(`${API_BASE}/resolve?name=${encodeURIComponent(name)}`)
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.detail)
@@ -29,7 +32,7 @@ function ComponentRowsEditor({ components, setComponents }) {
       const smiles = await data.smiles;
       updateRow(i, 'smiles', smiles);
     } catch (e) {
-      alert(e.message);
+      showError(e.message);
     }
   };
 
@@ -55,7 +58,7 @@ function ComponentRowsEditor({ components, setComponents }) {
           <Button color="error" onClick={() => removeRow(i)}>×</Button>
           {row.smiles && (
             <img
-              src={`http://localhost:8000/depict?smiles=${encodeURIComponent(row.smiles)}`}
+              src={`${API_BASE}/depict?smiles=${encodeURIComponent(row.smiles)}`}
               alt='structure'
               style={{ height: 40, width: 'auto', maxWidth: '100%'}}
             />

@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from "@mui/material";
 import ComponentRowsEditor from "./ComponentRowsEditor.jsx";
+import { useToast } from "./useToast.js";
+import { API_BASE } from "./api.js";
 
 function ReactionEditDialog({ reaction, onClose, onUpdated }) {
+  const { showError } = useToast();
   const [expCode, setExpCode] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
@@ -33,7 +36,7 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
 
   const handleSubmit = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/reactions/${reaction.id}`, {
+      const res = await fetch(`${API_BASE}/reactions/${reaction.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -54,7 +57,7 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
       if (!res.ok) { const err = await res.json(); throw new Error(JSON.stringify(err.detail)); }
       onUpdated();
       onClose();
-    } catch (e) { alert(e.message); }
+    } catch (e) { showError(e.message); }
   };
 
   return (

@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { TextField, Button } from "@mui/material";
+import { Button, Paper, TextField, Typography } from "@mui/material";
 import ComponentRowsEditor from "./ComponentRowsEditor.jsx";
+import { useToast } from "./useToast.js";
+import { API_BASE } from "./api.js";
 
 function ReactionForm({ onCreated }) {
+  const { showError } = useToast();
   const [expCode, setExpCode] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
@@ -15,7 +18,7 @@ function ReactionForm({ onCreated }) {
 
   const handleCreate = async () => {
     try {
-      const res = await fetch("http://localhost:8000/reactions", {
+      const res = await fetch(`${API_BASE}/reactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -43,12 +46,14 @@ function ReactionForm({ onCreated }) {
       setTemperature(""); setDurationH(""); setNote("");
       setComponents([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "" }]);
       onCreated();
-    } catch (e) { alert(e.message); }
+    } catch (e) { showError(e.message); }
   };
 
   return (
-    <div style={{ border: "1px solid #ccc", padding: 12, marginBottom: 16 }}>
-      <h3>New reaction</h3>
+    <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+      <Typography variant="subtitle2" gutterBottom>
+        New reaction
+      </Typography>
       <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         <TextField label="Exp code" size="small" value={expCode} onChange={(e) => setExpCode(e.target.value)} />
         {/* title は検索の主キーになるので、反応名や条件を自由に書いておく */}
@@ -61,8 +66,8 @@ function ReactionForm({ onCreated }) {
         <TextField label="Note" size="small" value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
       <ComponentRowsEditor components={components} setComponents={setComponents} />
-      <Button variant="contained" onClick={handleCreate} style={{ marginTop: 8 }}>Register</Button>
-    </div>
+      <Button variant="contained" onClick={handleCreate} sx={{ mt: 1 }}>Register</Button>
+    </Paper>
   );
 }
 export default ReactionForm;

@@ -7,8 +7,11 @@ import {
   TextField,
   Button
 } from '@mui/material';
+import { useToast } from "./useToast.js";
+import { API_BASE } from "./api.js";
 
 function CompoundEditDialog({ compound, onClose, onUpdated }) {
+  const { showError } = useToast();
   const [name, setName] = useState("");
   const [density, setDensity] = useState("");
 
@@ -27,7 +30,7 @@ function CompoundEditDialog({ compound, onClose, onUpdated }) {
         density: density === "" ? null : Number(density)
       };
       // バッククウォートで囲んで、${...}とすることで変数や式を文字列に埋め込む
-      const res = await fetch(`http://localhost:8000/compounds/${compound.id}`, {
+      const res = await fetch(`${API_BASE}/compounds/${compound.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json"},
         // {"density": 1.23}の形にする
@@ -41,7 +44,7 @@ function CompoundEditDialog({ compound, onClose, onUpdated }) {
       onUpdated();
       onClose();
     } catch (e) {
-      alert(e.message);
+      showError(e.message);
     }
   };
 

@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
+import { CircularProgress, Stack, Typography } from "@mui/material";
 import StructureSearchBar from "./StructureSearchBar.jsx";
-import { buildUrl, fetchJson } from "./api.js";
+import { API_BASE, buildUrl, fetchJson } from "./api.js";
 import ReactionItem from "./ReactionItem.jsx";
 import ReactionForm from "./ReactionForm.jsx";
 import ReactionEditDialog from "./ReactionEditDialog.jsx";
+import { useToast } from "./useToast.js";
 
 function ReactionTable() {
+  const { showError } = useToast();
   const [reactions, setReactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState({
@@ -23,7 +26,7 @@ function ReactionTable() {
       const data = await fetchJson(url);
       setReactions(data);
     } catch (e) {
-      alert(e.message);
+      showError(e.message);
       setReactions([]);
     } finally {
       setLoading(false);
@@ -37,7 +40,7 @@ function ReactionTable() {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this reaction?")) return;
     try {
-      const res = await fetch(`http://localhost:8000/reactions/${id}`, {
+      const res = await fetch(`${API_BASE}/reactions/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -46,7 +49,7 @@ function ReactionTable() {
       }
       await fetchReactions();
     } catch (e) {
-      alert(e.message);
+      showError(e.message);
     }
   };
 
@@ -63,7 +66,13 @@ function ReactionTable() {
         textLabel="Search (code / title / note)"
       />
       {loading ? (
-        <p>Loading...</p>
+        <Stack sx={{ alignItems: "center", py: 6 }}>
+          <CircularProgress size={28} />
+        </Stack>
+      ) : reactions.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 5, textAlign: "center" }}>
+          該当する反応がありません
+        </Typography>
       ) : (
         reactions.map((r) => (
           <ReactionItem

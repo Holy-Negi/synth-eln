@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { TextField, MenuItem, Box } from "@mui/material";
 import { buildUrl, fetchJson } from "./api.js";
+import { useToast } from "./useToast.js";
 
 const ROLES = ["reactant", "reagent", "solvent", "catalyst", "product"];
 
@@ -17,23 +18,30 @@ function StructureSearchBar({
   showRole = false,
   textLabel = "Search",
 }) {
+  const { showError } = useToast();
   const [groups, setGroups] = useState([]);
   const [smartsInput, setSmartsInput] = useState(value.substructure ?? "");
 
   // ── 官能基プリセットの取得 ──────────────────────────────
-  const fetchGroups = async () => {
-    const url = buildUrl("/functional-groups");
-    try {
-      const data = await fetchJson(url);
-      setGroups(data);
-    } catch (e) {
-      alert(e.message);
-      setGroups([]);
-    }
-  };
+  // マウント時に取得する。showError は再レンダーをまたいで同じ関数なので再実行されない
   useEffect(() => {
-    fetchGroups();
-  }, []);
+    // アンマウント後に setState しないための取り消しフラグ
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchJson(buildUrl("/functional-groups"));
+        if (!cancelled) setGroups(data);
+      } catch (e) {
+        if (!cancelled) {
+          showError(e.message);
+          setGroups([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showError]);
 
   // ── SMARTS 入力のデバウンス ──────────────────────────
   // 入力が止まってから 400ms 後に、最後の1回だけ親へ通知する
