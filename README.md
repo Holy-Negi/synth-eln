@@ -1,9 +1,9 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-# ELN (Electronic Lab Notebook: 電子実験ノート) Project
+# synthELN (organic-synthesis Electronic Lab Notebook: 有機合成電子実験ノート)
 
-SMILESをもとに化合物の物性をRDKitで計算し、化合物・反応情報をPostgreSQLへSQLAlchemyを通して登録する。
-反応スケールを入力すると、試薬の必要物質量・質量・体積を算出する当量表を生成する。
+synthELNは、主に有機化学者が日々の実験記録を管理・運用するのを手助けする、SQLベースのツールです。
+主な機能は[こちら](https://nice-spirit-26e.notion.site/synthELN-3d3294161c5180a6aa61fb3c766ba79e)をご覧ください。
 
 ## 全体構成
 
@@ -16,7 +16,7 @@ Chemoinfomatics/
 └── pyproject.toml   Pythonプロジェクト定義（uv管理）
 ```
 
-> 環境構築（PostgreSQL・依存インストール・マイグレーション・起動）の詳細な手順は [`SETUP.md`](./SETUP.md) を参照。
+> 環境構築（PostgreSQL・依存インストール・マイグレーション・起動）の詳細な手順は `[SETUP.md](./SETUP.md)` を参照。
 
 ## 各ディレクトリの役割
 
@@ -83,9 +83,3 @@ React 19 + Vite + Material-UIによるフロントエンド。化合物・反応
 | DB             | PostgreSQL                             |
 | フロントエンド | React 19, Vite, Material-UI (MUI)      |
 | パッケージ管理 | uv（Python） / npm（JS）               |
-
-## TODO
-
-- 構造式での部分検索を実装
-- UIの調整
-- 試薬の在庫量を計算する機能の実装
