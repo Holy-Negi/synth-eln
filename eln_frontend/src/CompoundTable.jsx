@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import CompoundEditDialog from "./CompoundEditDialog.jsx";
 import CompoundForm from "./CompoundForm.jsx";
+import ConfirmDialog from "./ConfirmDialog.jsx";
 import StructureSearchBar from "./StructureSearchBar.jsx";
 import { API_BASE, buildUrl, fetchJson } from "./api.js";
 import {
@@ -15,9 +16,18 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Typography,
 } from "@mui/material";
 import { useToast } from "./useToast.js";
+
+// 表示する列の定義。digits を持つ列は数値としてソート・整形する
+const COLUMNS = [
+  { key: "name", label: "Name", align: "left" },
+  { key: "mw", label: "MW", align: "right", digits: 2 },
+  { key: "density", label: "Density (g/mL)", align: "right", digits: 3 },
+  { key: "logp", label: "LogP", align: "right", digits: 2 },
+];
 
 function CompoundTable() {
   const { showError } = useToast();
@@ -26,6 +36,10 @@ function CompoundTable() {
   // 検索条件は1つの state にまとめる
   const [search, setSearch] = useState({ q: "", substructure: "", fg: "" });
   const [editing, setEditing] = useState(null);
+  // 削除確認ダイアログの対象。null なら閉じている
+  const [deleting, setDeleting] = useState(null);
+  // 並べ替えの状態。key は COLUMNS の key、dir は昇順/降順
+  const [sort, setSort] = useState({ key: "name", dir: "asc" });
 
   const fetchCompounds = async () => {
     setLoading(true);
@@ -47,10 +61,32 @@ function CompoundTable() {
     fetchCompounds();
   }, [search.q, search.substructure, search.fg]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete the data?")) {
-      return;
-    }
+  // 同じ列を再度押したら昇順・降順を反転、別の列なら昇順から始める
+  const handleSort = (key) =>
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" },
+    );
+
+  // 並べ替えは取得し直さずクライアント側で行う。
+  // useMemo は依存が変わったときだけ再計算する（毎レンダーのソートを避ける）
+  const sorted = useMemo(() => {
+    return [...compounds].sort((a, b) => {
+      const x = a[sort.key];
+      const y = b[sort.key];
+      // 未入力（null）は昇順・降順にかかわらず常に末尾へ送る
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      const diff = typeof x === "string" ? x.localeCompare(y) : x - y;
+      return sort.dir === "asc" ? diff : -diff;
+    });
+  }, [compounds, sort]);
+
+  const handleDelete = async () => {
+    const id = deleting.id;
+    setDeleting(null);
     try {
       const res = await fetch(`${API_BASE}/compounds/${id}`, {
         method: "DELETE",
@@ -84,26 +120,38 @@ function CompoundTable() {
               <TableRow>
                 {/* 構造式の列。幅を固定して行の高さを揃える */}
                 <TableCell sx={{ width: 104 }} />
-                <TableCell>Name</TableCell>
-                {/* 数値列は右寄せ。等幅数字はテーマ側で指定済み */}
-                <TableCell align="right">MW</TableCell>
-                <TableCell align="right">LogP</TableCell>
+                {COLUMNS.map((col) => (
+                  // 数値列は右寄せ。等幅数字はテーマ側で指定済み
+                  <TableCell
+                    key={col.key}
+                    align={col.align}
+                    sortDirection={sort.key === col.key ? sort.dir : false}
+                  >
+                    <TableSortLabel
+                      active={sort.key === col.key}
+                      direction={sort.key === col.key ? sort.dir : "asc"}
+                      onClick={() => handleSort(col.key)}
+                    >
+                      {col.label}
+                    </TableSortLabel>
+                  </TableCell>
+                ))}
                 {/* Edit / Delete をまとめる列 */}
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {compounds.length === 0 ? (
+              {sorted.length === 0 ? (
                 // 0 件のときの表示
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={COLUMNS.length + 2} align="center" sx={{ py: 5 }}>
                     <Typography variant="body2" color="text.secondary">
                       該当する化合物がありません
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                compounds.map((c) => (
+                sorted.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell>
                       {c.smiles && (
@@ -125,13 +173,17 @@ function CompoundTable() {
                         </Box>
                       )}
                     </TableCell>
-                    <TableCell>{c.name}</TableCell>
-                    <TableCell align="right">{c.mw?.toFixed(2) ?? "–"}</TableCell>
-                    <TableCell align="right">{c.logp?.toFixed(2) ?? "–"}</TableCell>
+                    {COLUMNS.map((col) => (
+                      <TableCell key={col.key} align={col.align}>
+                        {col.digits == null
+                          ? c[col.key]
+                          : (c[col.key]?.toFixed(col.digits) ?? "–")}
+                      </TableCell>
+                    ))}
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
                         <Button onClick={() => setEditing(c)}>Edit</Button>
-                        <Button color="error" onClick={() => handleDelete(c.id)}>
+                        <Button color="error" onClick={() => setDeleting(c)}>
                           Delete
                         </Button>
                       </Stack>
@@ -147,6 +199,13 @@ function CompoundTable() {
         compound={editing}
         onClose={() => setEditing(null)}
         onUpdated={fetchCompounds}
+      />
+      <ConfirmDialog
+        open={!!deleting}
+        title="Delete compound"
+        message={`「${deleting?.name ?? ""}」を削除します。この操作は取り消せません。`}
+        onCancel={() => setDeleting(null)}
+        onConfirm={handleDelete}
       />
     </>
   );

@@ -71,7 +71,14 @@ function CompoundForm({ onCreated }) {
             value={smiles}
             onChange={(e) => { setSmiles(e.target.value); setValid(null); }}
           />
-          <TextField label="Density" value={density} onChange={(e) => setDensity(e.target.value)} />
+          <TextField
+            label="Density (g/mL)"
+            type="number"
+            // step: "any" で小数入力をブラウザの検証に弾かせない
+            slotProps={{ htmlInput: { step: "any", min: 0 } }}
+            value={density}
+            onChange={(e) => setDensity(e.target.value)}
+          />
           <Stack direction="row" spacing={1}>
             <Button onClick={handleResolve}>Get SMILES</Button>
             <Button variant="contained" onClick={handleCreate}>Register</Button>

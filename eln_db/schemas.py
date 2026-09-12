@@ -94,3 +94,5 @@ class EquivalentRow(BaseModel):
     mmol: float | None
     mass_g: float | None
     volume_ml: float | None
+    yield_percent: float | None = None   # product のみ（保存済みの実測収率）
+    actual_mass_g: float | None = None   # 理論収量 × 収率

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from "@mui/material";
+import { Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from "@mui/material";
 import ComponentRowsEditor from "./ComponentRowsEditor.jsx";
 import { useToast } from "./useToast.js";
 import { API_BASE } from "./api.js";
+
+const NUMBER_INPUT = { step: "any" };
 
 function ReactionEditDialog({ reaction, onClose, onUpdated }) {
   const { showError } = useToast();
@@ -26,10 +28,14 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
       setTemperature(reaction.temperature ?? "");
       setDurationH(reaction.duration_h ?? "");
       setNote(reaction.note ?? "");
+      // 更新は成分を全消し→作り直しするため、name と yield も読み戻さないと保存時に失われる
       setComponents(reaction.components.map((c) => ({
+        name: c.compound.name ?? "",
         smiles: c.compound.smiles ?? "",   // ネストした化合物からSMILESを取得
         role: c.role,
         equiv: c.equiv ?? "",
+        density: c.compound.density ?? "",
+        yield: c.yield_percent ?? "",
       })));
     }
   }, [reaction]);
@@ -49,8 +55,12 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
           duration_h: durationH === "" ? null : Number(durationH),
           note: note || null,
           components: components.map((c) => ({
-            smiles: c.smiles, role: c.role,
+            name: c.name || null,
+            smiles: c.smiles,
+            role: c.role,
             equiv: c.equiv === "" ? null : Number(c.equiv),
+            density: c.density === "" ? null : Number(c.density),
+            yield_percent: c.yield === "" ? null : Number(c.yield),
           })),
         }),
       });
@@ -61,19 +71,26 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
   };
 
   return (
-    <Dialog open={!!reaction} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={!!reaction} onClose={onClose} maxWidth="lg" fullWidth>
       <DialogTitle>Edit reaction</DialogTitle>
       <DialogContent>
-        <div style={{ display: "flex", gap: 8, margin: "8px 0", flexWrap: "wrap" }}>
-          <TextField label="Exp code" size="small" value={expCode} onChange={(e) => setExpCode(e.target.value)} />
-          <TextField label="Title" size="small" style={{ minWidth: 260 }} value={title} onChange={(e) => setTitle(e.target.value)} />
-          <TextField type="date" size="small" value={date} onChange={(e) => setDate(e.target.value)} />
-          <TextField label="Scale (mmol)" size="small" value={scale} onChange={(e) => setScale(e.target.value)} />
-          <TextField label="Conc (mol/L)" size="small" value={conc} onChange={(e) => setConc(e.target.value)} />
-          <TextField label="Temperature (°C)" size="small" value={temperature} onChange={(e) => setTemperature(e.target.value)} />
-          <TextField label="Time (h)" size="small" value={durationH} onChange={(e) => setDurationH(e.target.value)} />
-          <TextField label="Note" size="small" value={note} onChange={(e) => setNote(e.target.value)} />
-        </div>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", pt: 1, pb: 2 }}>
+          <TextField label="Exp code" value={expCode} onChange={(e) => setExpCode(e.target.value)} />
+          <TextField label="Title" sx={{ minWidth: 260, flexGrow: 1 }} value={title} onChange={(e) => setTitle(e.target.value)} />
+          {/* type="date" はラベルが値と重なるので shrink を固定する */}
+          <TextField label="Date" type="date" slotProps={{ inputLabel: { shrink: true } }}
+            value={date} onChange={(e) => setDate(e.target.value)} />
+          <TextField label="Scale (mmol)" type="number" slotProps={{ htmlInput: { step: "any", min: 0 } }}
+            sx={{ width: 130 }} value={scale} onChange={(e) => setScale(e.target.value)} />
+          <TextField label="Conc (mol/L)" type="number" slotProps={{ htmlInput: { step: "any", min: 0 } }}
+            sx={{ width: 130 }} value={conc} onChange={(e) => setConc(e.target.value)} />
+          {/* 温度は氷冷・ドライアイス条件で負になるため min を付けない */}
+          <TextField label="Temperature (°C)" type="number" slotProps={{ htmlInput: NUMBER_INPUT }}
+            sx={{ width: 150 }} value={temperature} onChange={(e) => setTemperature(e.target.value)} />
+          <TextField label="Time (h)" type="number" slotProps={{ htmlInput: { step: "any", min: 0 } }}
+            sx={{ width: 110 }} value={durationH} onChange={(e) => setDurationH(e.target.value)} />
+          <TextField label="Note" multiline value={note} sx={{ width: "100%" }} onChange={(e) => setNote(e.target.value)} />
+        </Box>
         <ComponentRowsEditor components={components} setComponents={setComponents} />
       </DialogContent>
       <DialogActions>

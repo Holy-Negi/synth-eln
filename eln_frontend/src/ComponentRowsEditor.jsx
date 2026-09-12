@@ -1,8 +1,11 @@
-import { TextField, Select, MenuItem, Button } from "@mui/material";
+import { Box, Button, MenuItem, Paper, Stack, TextField } from "@mui/material";
 import { useToast } from "./useToast.js";
 import { API_BASE } from "./api.js";
 
 const ROLES = ["reactant", "reagent", "solvent", "catalyst", "product"];
+
+// 小数を許す数値入力欄に共通で渡す設定
+const NUMBER_INPUT = { step: "any", min: 0 };
 
 function ComponentRowsEditor({ components, setComponents }) {
   const { showError } = useToast();
@@ -37,36 +40,55 @@ function ComponentRowsEditor({ components, setComponents }) {
   };
 
   return (
-    <div>
+    <Stack spacing={1}>
       {components.map((row, i) => (
-        <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
-          <TextField label="name" size="small" value={row.name}
-            onChange={(e) => updateRow(i, "name", e.target.value)} />
-          <Button onClick={() => handleResolve(i)}>Get SMILES</Button>
-          <TextField label="SMILES" size="small" value={row.smiles}
-            onChange={(e) => updateRow(i, "smiles", e.target.value)} />
-          <Select size="small" value={row.role}
-            onChange={(e) => updateRow(i, "role", e.target.value)}>
-            {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-          </Select>
-          <TextField label="equiv" size="small" value={row.equiv} style={{ width: 90 }}
-            onChange={(e) => updateRow(i, "equiv", e.target.value)} />
-          <TextField label="density (new only)" size="small" value={row.density} style={{ width: 90 }}
-            onChange={(e) => updateRow(i, "density", e.target.value)} />
-          <TextField label="yield (%)" size="small" value={row.yield} style={{ width: 90 }}
-            onChange={(e) => updateRow(i, "yield", e.target.value)} />
-          <Button color="error" onClick={() => removeRow(i)}>×</Button>
-          {row.smiles && (
-            <img
-              src={`${API_BASE}/depict?smiles=${encodeURIComponent(row.smiles)}`}
-              alt='structure'
-              style={{ height: 40, width: 'auto', maxWidth: '100%'}}
-            />
-          )}
-        </div>
+        // 行ごとに枠で囲み、画面幅が足りないときは中の入力欄が折り返す
+        <Paper key={i} variant="outlined" sx={{ p: 1.5 }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "flex-start" }}>
+            <TextField label="Name" value={row.name} sx={{ width: 180 }}
+              onChange={(e) => updateRow(i, "name", e.target.value)} />
+            <Button onClick={() => handleResolve(i)} sx={{ mt: 0.5 }}>Get SMILES</Button>
+            {/* flexGrow: 1 で余った横幅を SMILES 欄に割り当てる */}
+            <TextField label="SMILES" value={row.smiles} sx={{ flexGrow: 1, minWidth: 220 }}
+              onChange={(e) => updateRow(i, "smiles", e.target.value)} />
+            {/* select を付けると TextField が Select になり、ラベルも付く */}
+            <TextField select label="Role" value={row.role} sx={{ width: 130 }}
+              onChange={(e) => updateRow(i, "role", e.target.value)}>
+              {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+            </TextField>
+            <TextField label="Equiv" type="number" slotProps={{ htmlInput: NUMBER_INPUT }}
+              value={row.equiv} sx={{ width: 100 }}
+              onChange={(e) => updateRow(i, "equiv", e.target.value)} />
+            <TextField label="Density (g/mL)" type="number" slotProps={{ htmlInput: NUMBER_INPUT }}
+              value={row.density} sx={{ width: 130 }}
+              onChange={(e) => updateRow(i, "density", e.target.value)} />
+            <TextField label="Yield (%)" type="number" slotProps={{ htmlInput: NUMBER_INPUT }}
+              value={row.yield} sx={{ width: 110 }}
+              onChange={(e) => updateRow(i, "yield", e.target.value)} />
+
+            {row.smiles && (
+              // 構造式 SVG は背景が透明なので、白い板に載せる
+              <Box sx={{ bgcolor: "#fff", borderRadius: 1, p: 0.5, width: 96, display: "flex" }}>
+                <img
+                  src={`${API_BASE}/depict?smiles=${encodeURIComponent(row.smiles)}`}
+                  alt="structure"
+                  style={{ width: "100%", height: "auto", display: "block" }}
+                />
+              </Box>
+            )}
+
+            {/* marginLeft: auto で削除ボタンだけ右端に寄せる */}
+            <Button color="error" sx={{ ml: "auto", mt: 0.5 }} onClick={() => removeRow(i)}>
+              Remove
+            </Button>
+          </Box>
+        </Paper>
       ))}
-      <Button onClick={addRow}>+ Add component</Button>
-    </div>
+
+      <Box>
+        <Button onClick={addRow}>+ Add component</Button>
+      </Box>
+    </Stack>
   );
 }
 export default ComponentRowsEditor;

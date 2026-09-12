@@ -4,6 +4,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Stack,
   TextField,
   Button
 } from '@mui/material';
@@ -50,15 +51,26 @@ function CompoundEditDialog({ compound, onClose, onUpdated }) {
 
   return (
     // !!で型をbooleanに変換（!は否定演算子）。compoundオブジェクトがnullでないときのみDialogを開く
-    <Dialog open={!!compound} onClose={onClose}>
+    <Dialog open={!!compound} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Edit compound</DialogTitle>
       <DialogContent>
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <TextField label="Density" value={density} onChange={(e) => setDensity(e.target.value)} />
+        {/* Stack の spacing で入力欄の間隔を確保する。
+            pt がないと浮き上がったラベルが DialogTitle 側に切れて重なる */}
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          <TextField
+            label="Density (g/mL)"
+            type="number"
+            // step: "any" で小数入力をブラウザの検証に弾かせない
+            slotProps={{ htmlInput: { step: "any", min: 0 } }}
+            value={density}
+            onChange={(e) => setDensity(e.target.value)}
+          />
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit}>Save</Button>
+        <Button variant="contained" onClick={handleSubmit}>Save</Button>
       </DialogActions>
     </Dialog>
   );

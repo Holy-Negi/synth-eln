@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { Button, Paper, TextField, Typography } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography } from "@mui/material";
 import ComponentRowsEditor from "./ComponentRowsEditor.jsx";
 import { useToast } from "./useToast.js";
 import { API_BASE } from "./api.js";
+
+// 0以上の小数を受け付ける数値入力欄の設定
+const POSITIVE_INPUT = { step: "any", min: 0 };
 
 function ReactionForm({ onCreated }) {
   const { showError } = useToast();
@@ -54,17 +57,24 @@ function ReactionForm({ onCreated }) {
       <Typography variant="subtitle2" gutterBottom>
         New reaction
       </Typography>
-      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        <TextField label="Exp code" size="small" value={expCode} onChange={(e) => setExpCode(e.target.value)} />
+      <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+        <TextField label="Exp code" value={expCode} onChange={(e) => setExpCode(e.target.value)} />
         {/* title は検索の主キーになるので、反応名や条件を自由に書いておく */}
-        <TextField label="Title" size="small" style={{ minWidth: 260 }} value={title} onChange={(e) => setTitle(e.target.value)} />
-        <TextField type="date" size="small" value={date} onChange={(e) => setDate(e.target.value)} />
-        <TextField label="Scale (mmol)" size="small" value={scale} onChange={(e) => setScale(e.target.value)} />
-        <TextField label="Conc (mol/L)" size="small" value={conc} onChange={(e) => setConc(e.target.value)} />
-        <TextField label="Temperature (°C)" size="small" value={temperature} onChange={(e) => setTemperature(e.target.value)} />
-        <TextField label="Time (h)" size="small" value={durationH} onChange={(e) => setDurationH(e.target.value)} />
-        <TextField label="Note" size="small" value={note} onChange={(e) => setNote(e.target.value)} />
-      </div>
+        <TextField label="Title" sx={{ minWidth: 260, flexGrow: 1 }} value={title} onChange={(e) => setTitle(e.target.value)} />
+        {/* type="date" はラベルが値と重なるので shrink を固定する */}
+        <TextField label="Date" type="date" slotProps={{ inputLabel: { shrink: true } }}
+          value={date} onChange={(e) => setDate(e.target.value)} />
+        <TextField label="Scale (mmol)" type="number" slotProps={{ htmlInput: POSITIVE_INPUT }}
+          sx={{ width: 130 }} value={scale} onChange={(e) => setScale(e.target.value)} />
+        <TextField label="Conc (mol/L)" type="number" slotProps={{ htmlInput: POSITIVE_INPUT }}
+          sx={{ width: 130 }} value={conc} onChange={(e) => setConc(e.target.value)} />
+        {/* 温度は氷冷・ドライアイス条件で負になるため min を付けない */}
+        <TextField label="Temperature (°C)" type="number" slotProps={{ htmlInput: { step: "any" } }}
+          sx={{ width: 150 }} value={temperature} onChange={(e) => setTemperature(e.target.value)} />
+        <TextField label="Time (h)" type="number" slotProps={{ htmlInput: POSITIVE_INPUT }}
+          sx={{ width: 110 }} value={durationH} onChange={(e) => setDurationH(e.target.value)} />
+        <TextField label="Note" multiline sx={{ width: "100%" }} value={note} onChange={(e) => setNote(e.target.value)} />
+      </Box>
       <ComponentRowsEditor components={components} setComponents={setComponents} />
       <Button variant="contained" onClick={handleCreate} sx={{ mt: 1 }}>Register</Button>
     </Paper>

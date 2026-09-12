@@ -5,6 +5,7 @@ import { API_BASE, buildUrl, fetchJson } from "./api.js";
 import ReactionItem from "./ReactionItem.jsx";
 import ReactionForm from "./ReactionForm.jsx";
 import ReactionEditDialog from "./ReactionEditDialog.jsx";
+import ConfirmDialog from "./ConfirmDialog.jsx";
 import { useToast } from "./useToast.js";
 
 function ReactionTable() {
@@ -18,6 +19,8 @@ function ReactionTable() {
     role: "",
   });
   const [editing, setEditing] = useState(null);
+  // 削除確認ダイアログの対象。null なら閉じている
+  const [deleting, setDeleting] = useState(null);
 
   const fetchReactions = async () => {
     setLoading(true);
@@ -37,8 +40,9 @@ function ReactionTable() {
     fetchReactions();
   }, [search.q, search.substructure, search.fg, search.role]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this reaction?")) return;
+  const handleDelete = async () => {
+    const id = deleting.id;
+    setDeleting(null);
     try {
       const res = await fetch(`${API_BASE}/reactions/${id}`, {
         method: "DELETE",
@@ -79,7 +83,7 @@ function ReactionTable() {
             key={r.id}
             reaction={r}
             onEdit={setEditing}
-            onDelete={handleDelete}
+            onDelete={setDeleting}
           />
         ))
       )}
@@ -87,6 +91,13 @@ function ReactionTable() {
         reaction={editing}
         onClose={() => setEditing(null)}
         onUpdated={fetchReactions}
+      />
+      <ConfirmDialog
+        open={!!deleting}
+        title="Delete reaction"
+        message={`${deleting?.exp_code ?? ""} を成分ごと削除します。この操作は取り消せません。`}
+        onCancel={() => setDeleting(null)}
+        onConfirm={handleDelete}
       />
     </>
   );

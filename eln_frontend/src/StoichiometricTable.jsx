@@ -1,23 +1,50 @@
 import { useState, useEffect } from "react";
 import {
   Autocomplete,
-  TextField,
+  Box,
   Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  TextField,
+  Typography,
 } from "@mui/material";
 import StructureSearchBar from "./StructureSearchBar.jsx";
 import { API_BASE, buildUrl, fetchJson } from "./api.js";
 import { useToast } from "./useToast.js";
 
-const fmt = (v, d) => (v == null ? "-" : v.toFixed(d)); // null は "-"、数値は桁数指定
+const fmt = (v, d) => (v == null ? "–" : v.toFixed(d)); // null は "–"、数値は桁数指定
+
+const POSITIVE_INPUT = { step: "any", min: 0 };
+
+const ROLE_COLOR = {
+  reactant: "primary",
+  reagent: "info",
+  catalyst: "warning",
+  product: "success",
+  solvent: "default",
+};
+
+// 当量表の列定義。key は API（EquivalentRow）のフィールド名に対応する
+const COLUMNS = [
+  { key: "mw", label: "MW", digits: 2 },
+  { key: "equiv", label: "Equiv", digits: 2 },
+  { key: "mmol", label: "mmol", digits: 3 },
+  { key: "mass_g", label: "Mass (g)", digits: 4 },
+  { key: "volume_ml", label: "Volume (mL)", digits: 3 },
+  { key: "yield_percent", label: "Yield (%)", digits: 1 },
+  { key: "actual_mass_g", label: "Actual (g)", digits: 4 },
+];
 
 // 指定した role の化合物名だけを取り出す
 const namesOf = (r, role) =>
@@ -93,9 +120,11 @@ function RegisterFromEquivalents({
         components: sourceReaction.components.map((c) => {
           const isProduct = c.role === "product";
           return {
-            smiles: c.compound.smiles, // ネストした化合物から SMILES を取得
+            name: c.compound.name, // ネストした化合物から名前と SMILES を取得
+            smiles: c.compound.smiles,
             role: c.role,
             equiv: c.equiv,
+            density: c.compound.density,
             yield_percent: isProduct
               ? yieldP === ""
                 ? null
@@ -126,39 +155,39 @@ function RegisterFromEquivalents({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Register this content as a new reaction</DialogTitle>
       <DialogContent>
-        <p style={{ margin: "4px 0", opacity: 0.8 }}>
+        <Typography variant="body2" color="text.secondary">
           元反応: {sourceReaction?.exp_code} / scale: {scale} mmol / conc:{" "}
           {sourceReaction?.conc} mol/L
-        </p>
-        <div
-          style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
-        >
+        </Typography>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", pt: 2 }}>
           <TextField
             label="New exp code"
-            size="small"
             value={expCode}
             onChange={(e) => setExpCode(e.target.value)}
           />
           <TextField
             label="Title"
-            size="small"
             value={title}
-            style={{ minWidth: 220 }}
+            sx={{ minWidth: 220, flexGrow: 1 }}
             onChange={(e) => setTitle(e.target.value)}
           />
           <TextField
             label="Yield (%)"
-            size="small"
+            type="number"
+            slotProps={{ htmlInput: POSITIVE_INPUT }}
+            sx={{ width: 120 }}
             value={yieldP}
             onChange={(e) => setYieldP(e.target.value)}
           />
+          {/* type="date" はラベルが値と重なるので shrink を固定する */}
           <TextField
+            label="Date"
             type="date"
-            size="small"
+            slotProps={{ inputLabel: { shrink: true } }}
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
-        </div>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
@@ -229,148 +258,167 @@ function StoichiometricTable() {
   };
 
   return (
-    <div style={{ border: "1px solid #ccc", padding: 12, marginTop: 24 }}>
-      <h2>Stoichiometric table</h2>
+    <Stack spacing={2}>
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Stoichiometric table
+        </Typography>
 
-      {/* 2段構えの絞り込み。ここでサーバ側が構造で候補を絞り、
-          下の Autocomplete がその中を文字列で検索する */}
-      <StructureSearchBar
-        value={search}
-        onChange={setSearch}
-        showRole
-        textLabel="Filter reactions (code / title / note)"
-      />
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          marginBottom: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <Autocomplete
-          options={reactions}
-          value={selectedReaction}
-          onChange={(e, v) => handleSelect(v)}
-          // 選択後に入力欄へ表示される文字列
-          getOptionLabel={(r) =>
-            `${r.exp_code}${r.title ? ` — ${r.title}` : ""}`
-          }
-          // 再取得でオブジェクトが変わるため id で同一判定する
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-          // 空白区切りの AND 検索。"suzuki 08-" のように複数語で絞り込める
-          filterOptions={(opts, { inputValue }) => {
-            const terms = inputValue
-              .trim()
-              .toLowerCase()
-              .split(/\s+/)
-              .filter(Boolean);
-            if (terms.length === 0) return opts;
-            return opts.filter((r) => {
-              const hay = searchText(r);
-              return terms.every((t) => hay.includes(t));
-            });
-          }}
-          // 候補1件の見た目: 見出し + 反応式の文字要約 + 反応式SVGサムネイル
-          renderOption={(props, r) => {
-            const { key, ...rest } = props; // MUI v9 は props に key を含むので分けて渡す
-            return (
-              <li
-                key={key}
-                {...rest}
-                style={{ display: "block", padding: "8px 12px" }}
-              >
-                <div style={{ fontWeight: 600 }}>
-                  {r.exp_code}
-                  {r.title ? ` — ${r.title}` : ""}
-                  <span
-                    style={{ float: "right", opacity: 0.6, fontWeight: 400 }}
-                  >
-                    {r.date?.slice(0, 10)}
-                  </span>
-                </div>
-                <div style={{ fontSize: "0.85em", opacity: 0.8 }}>
-                  {schemeText(r)}
-                </div>
-                <img
-                  src={`${API_BASE}/reactions/${r.id}/scheme`}
-                  alt={`scheme of ${r.exp_code}`}
-                  loading="lazy" // 表示された候補の分だけ取得する
-                  style={{
-                    height: 64,
-                    marginTop: 4,
-                    background: "#fff",
-                    borderRadius: 4,
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }} // 描画失敗時は隠す
-                />
-              </li>
-            );
-          }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Reaction (code / title / compound)"
-              size="small"
-            />
-          )}
-          sx={{ minWidth: 420 }}
-          slotProps={{ listbox: { style: { maxHeight: 420 } } }}
+        {/* 2段構えの絞り込み。ここでサーバ側が構造で候補を絞り、
+            下の Autocomplete がその中を文字列で検索する */}
+        <StructureSearchBar
+          value={search}
+          onChange={setSearch}
+          showRole
+          textLabel="Filter reactions (code / title / note)"
         />
-        <TextField
-          label="Scale (mmol)"
-          size="small"
-          value={scale}
-          onChange={(e) => setScale(e.target.value)}
-        />
-        <Button
-          variant="contained"
-          onClick={handleCompute}
-          disabled={!selectedReaction || !scale}
+
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+          }}
         >
-          Compute
-        </Button>
-      </div>
+          <Autocomplete
+            options={reactions}
+            value={selectedReaction}
+            onChange={(e, v) => handleSelect(v)}
+            // 選択後に入力欄へ表示される文字列
+            getOptionLabel={(r) =>
+              `${r.exp_code}${r.title ? ` — ${r.title}` : ""}`
+            }
+            // 再取得でオブジェクトが変わるため id で同一判定する
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            // 空白区切りの AND 検索。"suzuki 08-" のように複数語で絞り込める
+            filterOptions={(opts, { inputValue }) => {
+              const terms = inputValue
+                .trim()
+                .toLowerCase()
+                .split(/\s+/)
+                .filter(Boolean);
+              if (terms.length === 0) return opts;
+              return opts.filter((r) => {
+                const hay = searchText(r);
+                return terms.every((t) => hay.includes(t));
+              });
+            }}
+            // 候補1件の見た目: 見出し + 反応式の文字要約 + 反応式SVGサムネイル
+            renderOption={(props, r) => {
+              const { key, ...rest } = props; // MUI v9 は props に key を含むので分けて渡す
+              return (
+                <Box
+                  component="li"
+                  key={key}
+                  {...rest}
+                  sx={{ display: "block", px: 1.5, py: 1 }}
+                >
+                  <Typography variant="subtitle2" component="div">
+                    {r.exp_code}
+                    {r.title ? ` — ${r.title}` : ""}
+                    <Box
+                      component="span"
+                      sx={{
+                        float: "right",
+                        fontWeight: 400,
+                        color: "text.secondary",
+                      }}
+                    >
+                      {r.date?.slice(0, 10)}
+                    </Box>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {schemeText(r)}
+                  </Typography>
+                  <img
+                    src={`${API_BASE}/reactions/${r.id}/scheme`}
+                    alt={`scheme of ${r.exp_code}`}
+                    loading="lazy" // 表示された候補の分だけ取得する
+                    style={{
+                      height: 64,
+                      marginTop: 4,
+                      background: "#fff",
+                      borderRadius: 4,
+                    }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }} // 描画失敗時は隠す
+                  />
+                </Box>
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Reaction (code / title / compound)"
+              />
+            )}
+            sx={{ minWidth: 420, flexGrow: 1 }}
+            slotProps={{ listbox: { style: { maxHeight: 420 } } }}
+          />
+          <TextField
+            label="Scale (mmol)"
+            type="number"
+            slotProps={{ htmlInput: POSITIVE_INPUT }}
+            sx={{ width: 130 }}
+            value={scale}
+            onChange={(e) => setScale(e.target.value)}
+          />
+          <Button
+            variant="contained"
+            onClick={handleCompute}
+            disabled={!selectedReaction || !scale}
+            sx={{ mt: 0.5 }}
+          >
+            Compute
+          </Button>
+        </Box>
+      </Paper>
 
       {rows.length > 0 && (
         <>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>MW</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Equiv</TableCell>
-                <TableCell>mmol</TableCell>
-                <TableCell>Mass (g)</TableCell>
-                <TableCell>Volume (mL)</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row, i) => (
-                <TableRow key={i}>
-                  <TableCell>{row.name}</TableCell>
-                  <TableCell>{fmt(row.mw, 2)}</TableCell>
-                  <TableCell>{row.role}</TableCell>
-                  <TableCell>{fmt(row.equiv, 2)}</TableCell>
-                  <TableCell>{fmt(row.mmol, 3)}</TableCell>
-                  <TableCell>{fmt(row.mass_g, 4)}</TableCell>
-                  <TableCell>{fmt(row.volume_ml, 3)}</TableCell>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Role</TableCell>
+                  {COLUMNS.map((col) => (
+                    <TableCell key={col.key} align="right">
+                      {col.label}
+                    </TableCell>
+                  ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {rows.map((row, i) => (
+                  <TableRow key={i}>
+                    <TableCell>{row.name}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={row.role}
+                        color={ROLE_COLOR[row.role] ?? "default"}
+                      />
+                    </TableCell>
+                    {COLUMNS.map((col) => (
+                      <TableCell key={col.key} align="right">
+                        {fmt(row[col.key], col.digits)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-          <Button
-            variant="outlined"
-            style={{ marginTop: 12 }}
-            onClick={() => setDialogOpen(true)}
-          >
-            Register this content as a new reaction
-          </Button>
+          <Box>
+            <Button variant="outlined" onClick={() => setDialogOpen(true)}>
+              Register this content as a new reaction
+            </Button>
+          </Box>
         </>
       )}
 
@@ -383,7 +431,7 @@ function StoichiometricTable() {
           onRegistered={fetchReactions}
         />
       )}
-    </div>
+    </Stack>
   );
 }
 

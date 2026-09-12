@@ -201,7 +201,8 @@ def update_reaction(reaction_id: int, payload: ReactionUpdate, db: Session = Dep
     # 成分は全消し→作り直し（cascade delete-orphan が古い行を削除）
     reaction.components.clear()
     for c in payload.components:
-        compound, _ = get_or_create_compound(db, c.smiles)
+        # 新規化合物のときに name / density も保存されるよう、作成時と同じ引数を渡す
+        compound, _ = get_or_create_compound(db, c.smiles, c.name, c.density)
         if compound is None:
             raise HTTPException(422, detail=f"invalid SMILES: {c.smiles}")
         reaction.components.append(
