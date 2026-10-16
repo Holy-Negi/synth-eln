@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from models import Role
 
@@ -40,7 +40,9 @@ class ReactionComponentCreate(BaseModel):
     equiv: float | None = None
     density: float | None = None
     yield_percent: float | None = None
-    
+    # gt=0: 0 以下を 422 で弾く（比率の合計で割るため）
+    solvent_ratio: float | None = Field(default=None, gt=0)
+
 class ReactionCreate(BaseModel):
     exp_code: str
     title: str | None = None
@@ -60,6 +62,7 @@ class ReactionComponentRead(BaseModel):
     role: Role
     equiv: float | None
     yield_percent: float | None
+    solvent_ratio: float | None
     model_config = {"from_attributes": True}
 
 class ReactionRead(BaseModel):

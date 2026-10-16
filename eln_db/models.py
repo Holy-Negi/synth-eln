@@ -29,6 +29,7 @@ class ReactionComponent(Base):
     role: Mapped[Role]
     equiv: Mapped[float | None]
     yield_percent: Mapped[float | None]
+    solvent_ratio: Mapped[float | None]  # 混合溶媒の体積比（solvent のみ。None は 1 として扱う）
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     compound: Mapped["Compound"] = relationship(back_populates="components")
     reaction: Mapped["Reaction"] = relationship(back_populates="components")

@@ -12,7 +12,7 @@ function ComponentRowsEditor({ components, setComponents }) {
   // [...配列, 新しい配列]：配列に新しい配列を末尾に追加する
   // componentsを更新することでReactに再描画させる
   const addRow = () =>
-    setComponents([...components, { name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "" }]);
+    setComponents([...components, { name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "", ratio: "" }]);
 
   // i番目の行の key フィールドだけ更新（map で新配列を作る）
   const updateRow = (i, key, value) =>
@@ -65,6 +65,12 @@ function ComponentRowsEditor({ components, setComponents }) {
             <TextField label="Yield (%)" type="number" slotProps={{ htmlInput: NUMBER_INPUT }}
               value={row.yield} sx={{ width: 110 }}
               onChange={(e) => updateRow(i, "yield", e.target.value)} />
+            {/* 混合溶媒の体積比。未入力の溶媒は 1 として等分される */}
+            {row.role === "solvent" && (
+              <TextField label="Ratio (v/v)" type="number" slotProps={{ htmlInput: NUMBER_INPUT }}
+                value={row.ratio} sx={{ width: 110 }}
+                onChange={(e) => updateRow(i, "ratio", e.target.value)} />
+            )}
 
             {row.smiles && (
               // 構造式 SVG は背景が透明なので、白い板に載せる

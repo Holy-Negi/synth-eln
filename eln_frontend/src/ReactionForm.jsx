@@ -17,7 +17,7 @@ function ReactionForm({ onCreated }) {
   const [temperature, setTemperature] = useState("");
   const [durationH, setDurationH] = useState("");
   const [note, setNote] = useState("");
-  const [components, setComponents] = useState([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "" }]);
+  const [components, setComponents] = useState([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "", ratio: "" }]);
 
   const handleCreate = async () => {
     try {
@@ -39,7 +39,9 @@ function ReactionForm({ onCreated }) {
             role: c.role,
             equiv: c.equiv === "" ? null : Number(c.equiv),
             density: c.density === "" ? null : Number(c.density),
-            yield_percent: c.yield === "" ? null : Number(c.yield)
+            yield_percent: c.yield === "" ? null : Number(c.yield),
+            // solvent 以外では比率を送らない（role を後から変えた行に値が残っていても無視する）
+            solvent_ratio: c.role === "solvent" && c.ratio !== "" ? Number(c.ratio) : null,
           })),
         }),
       });
@@ -47,7 +49,7 @@ function ReactionForm({ onCreated }) {
       // フォームを初期化
       setExpCode(""); setTitle(""); setDate(""); setScale(""); setConc("");
       setTemperature(""); setDurationH(""); setNote("");
-      setComponents([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "" }]);
+      setComponents([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "", ratio: "" }]);
       onCreated();
     } catch (e) { showError(e.message); }
   };

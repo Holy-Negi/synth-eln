@@ -108,14 +108,9 @@ function RegisterFromEquivalents({
         date: new Date(date).toISOString(),
         scale: Number(scale), // 当量表で入力したスケール
         conc: sourceReaction.conc, // 濃度は元反応を引き継ぐ
-        temperature:
-          sourceReaction.temperature === ""
-            ? null
-            : Number(sourceReaction.temperature),
-        duration_h:
-          sourceReaction.duration_h === ""
-            ? null
-            : Number(sourceReaction.duration_h),
+        // API の値（数値 or null）をそのまま引き継ぐ
+        temperature: sourceReaction.temperature,
+        duration_h: sourceReaction.duration_h,
         note: `Cloned from ${sourceReaction.exp_code}`,
         components: sourceReaction.components.map((c) => {
           const isProduct = c.role === "product";
@@ -125,6 +120,7 @@ function RegisterFromEquivalents({
             role: c.role,
             equiv: c.equiv,
             density: c.compound.density,
+            solvent_ratio: c.solvent_ratio,
             yield_percent: isProduct
               ? yieldP === ""
                 ? null
@@ -242,6 +238,14 @@ function StoichiometricTable() {
     setRows([]);
     if (reaction && scale === "") setScale(String(reaction.scale));
   };
+
+  // scale を変えたら古い計算結果を消す（表示中の表と複製登録の scale を一致させるため）
+  const handleScaleChange = (value) => {
+    setScale(value);
+    setRows([]);
+  };
+
+  const canCompute = Boolean(selectedReaction && scale);
 
   const handleCompute = async () => {
     try {
@@ -363,12 +367,15 @@ function StoichiometricTable() {
             slotProps={{ htmlInput: POSITIVE_INPUT }}
             sx={{ width: 130 }}
             value={scale}
-            onChange={(e) => setScale(e.target.value)}
+            onChange={(e) => handleScaleChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && canCompute) handleCompute();
+            }}
           />
           <Button
             variant="contained"
             onClick={handleCompute}
-            disabled={!selectedReaction || !scale}
+            disabled={!canCompute}
             sx={{ mt: 0.5 }}
           >
             Compute

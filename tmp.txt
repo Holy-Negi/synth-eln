@@ -1,0 +1,57 @@
+B・C の実装方針（自分で埋める部分）
+先に一つ訂正があります。前回「Title が一覧に出ない」と書きましたが、ReactionItem.jsx は Title が入っていれば表示していました。データ側で Title が空なだけでした。
+
+各項目は「目的 → 触る場所 → 考えること → 調べるキーワード」の順に書いています。上ほど優先度が高いです。
+
+B1. 成分の入力で登録済み化合物を選べるようにする
+触る場所: ComponentRowsEditor.jsx の Name 欄
+考えること
+化合物一覧はどこで1回だけ取得するか（成分の行ごとに取得しない）
+候補を選んだとき、行のどのフィールドを埋めるか（name / smiles / density）
+一覧にない新しい化合物も手入力できるようにするか。今の Get SMILES の流れとどう共存させるか
+調べるキーワード: MUI Autocomplete freeSolo、onChange と onInputChange の違い
+B2. 実際の秤量値と単離質量を記録する
+触る場所: バックエンドからフロントまで全部（今回の solvent_ratio と同じ道筋です）
+考えること
+列をどのテーブルに足すか。秤量値も単離量も「その実験のその成分」の値なので、compounds ではなく reaction_components に置くのが自然です
+収率は手入力のまま残すか、単離質量 ÷ 理論収量で計算して出すか。計算で出すなら、yield_percent を DB に保存するか、毎回計算するかも決める
+当量表の Actual (g) 列の意味をどう変えるか
+調べるキーワード: Alembic autogenerate、Pydantic の computed_field（計算した値を API で返す場合）
+B3. 純度と溶液試薬（例: 1.0 M in THF）に対応する
+触る場所: stoichiometry.py の溶媒以外を処理する分岐
+考えること
+純度は試薬のロットごとに変わるので、化合物と成分のどちらに持たせるか
+溶液試薬の体積は mmol ÷ M で求められます。density で体積を出す計算とどちらを優先するか
+調べるキーワード: 純度補正後の質量の式
+B4. 質量・体積の単位を自動で切り替える
+触る場所: StoichiometricTable.jsx の COLUMNS と fmt
+考えること
+列ごとに「桁数」ではなく「整形関数」を持たせる形に変える
+何 g 未満なら mg 表示にするかの閾値と、有効数字を決める
+調べるキーワード: Intl.NumberFormat、toPrecision
+B5. Title が空の反応でも中身が分かるようにする
+考えること: Title が空なら反応式の文字列を代わりに出す。そのための schemeText は StoichiometricTable.jsx にすでにあるので、共通のモジュールに切り出して ReactionItem からも使う
+調べるキーワード: ES Modules の export / import
+B6. density の入力先を1つにする
+考えること: 正しい値をどこに置くかを決めます。今は反応フォームでも density を入力でき、get_or_create_compound は新しい化合物を作るときにしかそれを使いません。そのため、既存の化合物の行で density を書き換えても保存されません。この「入力したのに反映されない」状態をどうするかです（入力欄を読み取り専用にする、化合物も更新する、など）
+確かめ方: crud.py を読んで、既存の化合物のときに density がどう扱われるか確認する
+B7. 化合物の SMILES を編集できるようにする
+現状: バックエンドはすでに対応しています（main.py の update_compound が smiles を受け取り、物性を計算し直します）。足りないのはフロントの入力欄だけです
+注意: 書き換え後の InChIKey が既存の化合物と重なると、一意制約の違反で 500 エラーになります。409 として返すようにする
+調べるキーワード: SQLAlchemy IntegrityError、db.rollback()
+B8. 反応式の描画を見やすくする
+触る場所: chemistry.py の描画関数
+調べるキーワード: RDKit の CoordGen、rdDepictor、MolDrawOptions（文字や線の大きさの調整）
+C1. 反応選択リストで文字列が区切りなしで連結される
+原因の見当: {...rest} で渡される MUI の option のクラスの CSS（display: flex）が、sx の display: block より詳細度が高く、そちらが勝っていると考えられます
+方針: li 自体のスタイルと競合させず、li の中に縦に並べる箱を1つ入れて、その中にレイアウトを組む
+確かめ方: DevTools の Elements タブで、どのスタイルが適用されているかを見る
+C2. Scale 欄に数字が追記されてしまう
+方針: 入力欄にフォーカスしたとき、中の文字を全選択する
+調べるキーワード: onFocus、input 要素の全選択
+C3. 官能基の選択肢だけ日本語になっている
+触る場所: chemistry.py の FUNCTIONAL_GROUPS
+考えること: 表示用のラベルを英語にそろえるか、内部キーと表示名を分けて持つか
+C4. 官能基の選択肢を読み込み中であることが分からない
+触る場所: StructureSearchBar.jsx
+方針: 読み込み中かどうかの状態を1つ持ち、その間は選択欄を無効にするか「Loading…」を表示する

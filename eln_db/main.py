@@ -136,6 +136,7 @@ def create_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
             ReactionComponent(
                 compound=compound, role=c.role,
                 equiv=c.equiv, yield_percent=c.yield_percent,
+                solvent_ratio=c.solvent_ratio,
             )
         )
     db.add(reaction)
@@ -207,7 +208,8 @@ def update_reaction(reaction_id: int, payload: ReactionUpdate, db: Session = Dep
             raise HTTPException(422, detail=f"invalid SMILES: {c.smiles}")
         reaction.components.append(
             ReactionComponent(compound=compound, role=c.role,
-                              equiv=c.equiv, yield_percent=c.yield_percent)
+                              equiv=c.equiv, yield_percent=c.yield_percent,
+                              solvent_ratio=c.solvent_ratio)
         )
     db.commit()
     db.refresh(reaction)

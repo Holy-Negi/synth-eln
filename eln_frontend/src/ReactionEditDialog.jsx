@@ -36,6 +36,7 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
         equiv: c.equiv ?? "",
         density: c.compound.density ?? "",
         yield: c.yield_percent ?? "",
+        ratio: c.solvent_ratio ?? "",
       })));
     }
   }, [reaction]);
@@ -61,6 +62,7 @@ function ReactionEditDialog({ reaction, onClose, onUpdated }) {
             equiv: c.equiv === "" ? null : Number(c.equiv),
             density: c.density === "" ? null : Number(c.density),
             yield_percent: c.yield === "" ? null : Number(c.yield),
+            solvent_ratio: c.role === "solvent" && c.ratio !== "" ? Number(c.ratio) : null,
           })),
         }),
       });
