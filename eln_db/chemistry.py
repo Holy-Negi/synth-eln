@@ -32,25 +32,25 @@ def render_svg(smiles: str) -> str | None:
 
 # --- 反応式の描画 ------------------------------------------------------------
 # MolDraw2DSVG は中身をアスペクト比のままキャンバス中央に置く。
-# 辺に -1 を渡すとその辺を中身に合わせて自動計算する
+# 辺に-1を渡すとその辺を中身に合わせて自動計算する
 
-# 矢印の上に描く agent（reagent / catalyst / solvent）が収まる高さの倍率
+# 矢印の上に描くagent（reagent / catalyst / solvent）が収まる高さの倍率
 AGENT_HEADROOM = 1.4
 # 自動サイズが失敗したときの高さ。幅は自動計算のまま
 FALLBACK_HEIGHT = 140
 # 高さ固定でも失敗したときのサイズ
 FALLBACK_SIZE = (450, 150)
 
-# SVG ヘッダーの width='661px' height='66px' を取り出す
+# SVGヘッダーのwidth='661px', height='66px'を取り出す
 _SVG_SIZE_RE = re.compile(r"width='([\d.]+)px'\s+height='([\d.]+)px'")
 
 logger = logging.getLogger(__name__)
 
 
 def _draw_reaction(reaction_smiles: str, width: int, height: int) -> str:
-    """指定サイズで反応式 SVG を描く。-1 を渡した辺は自動計算される。
+    """指定サイズで反応式 SVG を描く。-1を渡した辺は自動計算される。
 
-    DrawReaction は反応オブジェクトに 2D 座標を書き込むため、毎回 SMILES から作り直す。
+    DrawReactionは反応オブジェクトに2D座標を書き込むため、毎回SMILESから作り直す。
     """
     rxn = AllChem.ReactionFromSmarts(reaction_smiles, useSmiles=True)
     drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
@@ -111,26 +111,26 @@ def largest_fragment_smiles(smiles: str) -> str:
 
 # 部分構造検索（substructure search）
 FUNCTIONAL_GROUPS: list[dict[str, str]] = [
-    {"name": "carboxylic_acid", "label": "カルボン酸",       "smarts": "[CX3](=[OX1])[OX2H1]"},
-    {"name": "ester",           "label": "エステル",         "smarts": "[#6][CX3](=[OX1])[OX2H0][#6]"},
-    {"name": "amide",           "label": "アミド",           "smarts": "[NX3][CX3](=[OX1])[#6]"},
-    {"name": "ketone",          "label": "ケトン",           "smarts": "[#6][CX3](=[OX1])[#6]"},
-    {"name": "aldehyde",        "label": "アルデヒド",       "smarts": "[CX3H1](=[OX1])[#6]"},
-    {"name": "alcohol",         "label": "アルコール",       "smarts": "[CX4][OX2H]"},
-    {"name": "phenol",          "label": "フェノール",       "smarts": "[c][OX2H]"},
-    {"name": "amine",           "label": "アミン",           "smarts": "[NX3;!$(NC=[O,S,N]);!$(N=*);!$([N+][O-]);!$(N[!#6;!#1])]"},
-    {"name": "nitrile",         "label": "ニトリル",         "smarts": "[NX1]#[CX2]"},
-    {"name": "nitro",           "label": "ニトロ",           "smarts": "[$([NX3](=[OX1])=[OX1]),$([NX3+](=[OX1])[O-])]"},
-    {"name": "ether",           "label": "エーテル",         "smarts": "[OD2]([#6;!$(C=[O,N,S])])[#6;!$(C=[O,N,S])]"},
-    {"name": "aryl_halide",     "label": "ハロゲン化アリール", "smarts": "[c][F,Cl,Br,I]"},
-    {"name": "alkyl_halide",    "label": "ハロゲン化アルキル", "smarts": "[CX4][F,Cl,Br,I]"},
-    {"name": "alkene",          "label": "アルケン",         "smarts": "[CX3]=[CX3]"},
-    {"name": "alkyne",          "label": "アルキン",         "smarts": "[CX2]#[CX2]"},
-    {"name": "boron",           "label": "ボロン酸 (エステル)", "smarts": "[#6][BX3]([OX2])[OX2]"},
-    {"name": "sulfonamide",     "label": "スルホンアミド",   "smarts": "[SX4](=[OX1])(=[OX1])[NX3]"},
-    {"name": "sulfonate_ester", "label": "スルホン酸エステル", "smarts": "[#6][OX2][SX4](=[OX1])(=[OX1])[#6]"},
-    {"name": "boc",             "label": "Boc保護アミン",   "smarts": "[CX4]([CH3])([CH3])([CH3])[OX2][CX3](=[OX1])[NX3]"},
-    {"name": "azide",           "label": "アジド",           "smarts": "[$([NX2-][NX2+]#[NX1]),$([NX2]=[NX2+]=[NX1-])]"},
+    {"name": "carboxylic_acid", "label": "carboxylic acid",       "smarts": "[CX3](=[OX1])[OX2H1]"},
+    {"name": "ester",           "label": "ester",         "smarts": "[#6][CX3](=[OX1])[OX2H0][#6]"},
+    {"name": "amide",           "label": "amide",           "smarts": "[NX3][CX3](=[OX1])[#6]"},
+    {"name": "ketone",          "label": "ketone",           "smarts": "[#6][CX3](=[OX1])[#6]"},
+    {"name": "aldehyde",        "label": "aldehyde",       "smarts": "[CX3H1](=[OX1])[#6]"},
+    {"name": "alcohol",         "label": "alcohol",       "smarts": "[CX4][OX2H]"},
+    {"name": "phenol",          "label": "phenol",       "smarts": "[c][OX2H]"},
+    {"name": "amine",           "label": "amine",           "smarts": "[NX3;!$(NC=[O,S,N]);!$(N=*);!$([N+][O-]);!$(N[!#6;!#1])]"},
+    {"name": "nitrile",         "label": "nitrile",         "smarts": "[NX1]#[CX2]"},
+    {"name": "nitro",           "label": "nitro",           "smarts": "[$([NX3](=[OX1])=[OX1]),$([NX3+](=[OX1])[O-])]"},
+    {"name": "ether",           "label": "ether",         "smarts": "[OD2]([#6;!$(C=[O,N,S])])[#6;!$(C=[O,N,S])]"},
+    {"name": "aryl_halide",     "label": "aryl halide",     "smarts": "[c][F,Cl,Br,I]"},
+    {"name": "alkyl_halide",    "label": "alkyl halide",    "smarts": "[CX4][F,Cl,Br,I]"},
+    {"name": "alkene",          "label": "alkene",          "smarts": "[CX3]=[CX3]"},
+    {"name": "alkyne",          "label": "alkyne",          "smarts": "[CX2]#[CX2]"},
+    {"name": "boron",           "label": "boron",          "smarts": "[#5]"},
+    {"name": "sulfonamide",     "label": "sulfonamide",   "smarts": "[SX4](=[OX1])(=[OX1])[NX3]"},
+    {"name": "sulfonate_ester", "label": "sulfonate ester", "smarts": "[#6][OX2][SX4](=[OX1])(=[OX1])[#6]"},
+    {"name": "boc",             "label": "N-Boc amine",   "smarts": "[CX4]([CH3])([CH3])([CH3])[OX2][CX3](=[OX1])[NX3]"},
+    {"name": "azide",           "label": "azide",           "smarts": "[$([NX2-][NX2+]#[NX1]),$([NX2]=[NX2+]=[NX1-])]"},
 ]
 
 FG_SMARTS: dict[str, str] = {g["name"]: g["smarts"] for g in FUNCTIONAL_GROUPS}

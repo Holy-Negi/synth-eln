@@ -312,44 +312,42 @@ function StoichiometricTable() {
             renderOption={(props, r) => {
               const { key, ...rest } = props; // MUI v9 は props に key を含むので分けて渡す
               return (
-                <Box
-                  component="li"
-                  key={key}
-                  {...rest}
-                  sx={{ display: "block", px: 1.5, py: 1 }}
-                >
-                  <Typography variant="subtitle2" component="div">
-                    {r.exp_code}
-                    {r.title ? ` — ${r.title}` : ""}
+                <li key={key} {...rest}>
+                  {/* li は MUI により flex なので、唯一の子として幅いっぱいに広げる */}
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    {/* 見出し行: コード・タイトル | 空き箱 | 日付 */}
                     <Box
-                      component="span"
-                      sx={{
-                        float: "right",
-                        fontWeight: 400,
-                        color: "text.secondary",
-                      }}
+                      sx={{ display: "flex", alignItems: "baseline", gap: 1 }}
                     >
-                      {r.date?.slice(0, 10)}
+                      <Typography variant="subtitle2">
+                        {r.exp_code}
+                        {r.title ? ` — ${r.title}` : ""}
+                      </Typography>
+                      <Box sx={{ flexGrow: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {r.date?.slice(0, 10)}
+                      </Typography>
                     </Box>
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {schemeText(r)}
-                  </Typography>
-                  <img
-                    src={`${API_BASE}/reactions/${r.id}/scheme`}
-                    alt={`scheme of ${r.exp_code}`}
-                    loading="lazy" // 表示された候補の分だけ取得する
-                    style={{
-                      height: 64,
-                      marginTop: 4,
-                      background: "#fff",
-                      borderRadius: 4,
-                    }}
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }} // 描画失敗時は隠す
-                  />
-                </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      {schemeText(r)}
+                    </Typography>
+                    <img
+                      src={`${API_BASE}/reactions/${r.id}/scheme`}
+                      alt={`scheme of ${r.exp_code}`}
+                      loading="lazy" // 表示された候補の分だけ取得する
+                      style={{
+                        display: "block",
+                        height: 64,
+                        marginTop: 4,
+                        background: "#fff",
+                        borderRadius: 4,
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }} // 描画失敗時は隠す
+                    />
+                  </Box>
+                </li>
               );
             }}
             renderInput={(params) => (
@@ -368,6 +366,7 @@ function StoichiometricTable() {
             sx={{ width: 130 }}
             value={scale}
             onChange={(e) => handleScaleChange(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()} // フォーカス時に全選択
             onKeyDown={(e) => {
               if (e.key === "Enter" && canCompute) handleCompute();
             }}

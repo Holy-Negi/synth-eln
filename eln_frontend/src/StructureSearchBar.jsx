@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { TextField, MenuItem, Box } from "@mui/material";
+import {
+  TextField,
+  MenuItem,
+  Box,
+  InputAdornment,
+  CircularProgress,
+} from "@mui/material";
 import { buildUrl, fetchJson } from "./api.js";
 import { useToast } from "./useToast.js";
 
@@ -21,11 +27,11 @@ function StructureSearchBar({
   const { showError } = useToast();
   const [groups, setGroups] = useState([]);
   const [smartsInput, setSmartsInput] = useState(value.substructure ?? "");
+  const [loading, setLoading] = useState(true);
+  const [fgError, setFgError] = useState(false);
 
   // ── 官能基プリセットの取得 ──────────────────────────────
-  // マウント時に取得する。showError は再レンダーをまたいで同じ関数なので再実行されない
   useEffect(() => {
-    // アンマウント後に setState しないための取り消しフラグ
     let cancelled = false;
     (async () => {
       try {
@@ -33,9 +39,11 @@ function StructureSearchBar({
         if (!cancelled) setGroups(data);
       } catch (e) {
         if (!cancelled) {
-          showError(e.message);
-          setGroups([]);
+          showError(e.message); // エラー通知
+          setFgError(true);
         }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -86,6 +94,18 @@ function StructureSearchBar({
         sx={{ minWidth: 200 }}
         value={value.fg ?? ""}
         onChange={(e) => set("fg", e.target.value)}
+        disabled={loading || fgError}
+        error={fgError}
+        helperText={fgError ? "Failed to load" : undefined}
+        slotProps={{
+          input: {
+            endAdornment: loading && (
+              <InputAdornment position="end" sx={{ mr: 2 }}>
+                <CircularProgress size={18} />
+              </InputAdornment>
+            ),
+          },
+        }}
       >
         <MenuItem value="">(none)</MenuItem>
         {groups.map((g) => (
