@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Box, Button, Paper, TextField, Typography } from "@mui/material";
 import ComponentRowsEditor from "./ComponentRowsEditor.jsx";
+import { EMPTY_ROW, toComponentPayload } from "./componentRows.js";
 import { useToast } from "./useToast.js";
 import { API_BASE } from "./api.js";
 
@@ -17,7 +18,7 @@ function ReactionForm({ onCreated }) {
   const [temperature, setTemperature] = useState("");
   const [durationH, setDurationH] = useState("");
   const [note, setNote] = useState("");
-  const [components, setComponents] = useState([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "", ratio: "" }]);
+  const [components, setComponents] = useState([{ ...EMPTY_ROW }]);
 
   const handleCreate = async () => {
     try {
@@ -33,23 +34,14 @@ function ReactionForm({ onCreated }) {
           temperature: temperature === "" ? null : Number(temperature),
           duration_h: durationH === "" ? null : Number(durationH),
           note: note || null,
-          components: components.map((c) => ({
-            name: c.name,
-            smiles: c.smiles,
-            role: c.role,
-            equiv: c.equiv === "" ? null : Number(c.equiv),
-            density: c.density === "" ? null : Number(c.density),
-            yield_percent: c.yield === "" ? null : Number(c.yield),
-            // solvent 以外では比率を送らない（role を後から変えた行に値が残っていても無視する）
-            solvent_ratio: c.role === "solvent" && c.ratio !== "" ? Number(c.ratio) : null,
-          })),
+          components: components.map(toComponentPayload),
         }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(JSON.stringify(err.detail)); }
       // フォームを初期化
       setExpCode(""); setTitle(""); setDate(""); setScale(""); setConc("");
       setTemperature(""); setDurationH(""); setNote("");
-      setComponents([{ name: "", smiles: "", role: "reactant", equiv: "", density: "", yield: "", ratio: "" }]);
+      setComponents([{ ...EMPTY_ROW }]);
       onCreated();
     } catch (e) { showError(e.message); }
   };

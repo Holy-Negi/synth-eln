@@ -54,6 +54,7 @@ htmlcov/
 
 # --------- その他 ----------------
 PubChem/
+tmp/
 test/
 ER.dio
 eln_db/temp.py

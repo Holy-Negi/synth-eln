@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@mui/material";
 import { API_BASE } from "./api.js";
+import { schemeText } from "./reactionText.js";
 
 const ROLE_COLOR = {
   reactant: "primary",
@@ -24,6 +25,16 @@ const ROLE_COLOR = {
   solvent: "default",
 };
 
+// 成分名の下に添える補足（純度・溶液濃度・溶媒比）
+const componentNote = (c) =>
+  [
+    c.purity_percent != null && `${c.purity_percent}%`,
+    c.solution_molarity != null && `${c.solution_molarity} M soln`,
+    c.solvent_ratio != null && `ratio ${c.solvent_ratio}`,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
 function ReactionItem({ reaction, onEdit, onDelete }) {
   const conditions = [
     reaction.date?.slice(0, 10),                        // ISO日時 → yyyy-mm-dd
@@ -31,6 +42,8 @@ function ReactionItem({ reaction, onEdit, onDelete }) {
     reaction.temperature != null && `${reaction.temperature} °C`,
     reaction.duration_h != null && `${reaction.duration_h} h`,
   ].filter(Boolean); // && が返す false を除き、値のある条件だけ残す
+
+  const summary = reaction.title || schemeText(reaction);
 
   // 収率は product 成分に記録されている。生成物が複数あればすべて並べる
   const yields = reaction.components.filter(
@@ -61,16 +74,16 @@ function ReactionItem({ reaction, onEdit, onDelete }) {
           {reaction.exp_code}
         </Typography>
 
-        {reaction.title && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            noWrap
-            sx={{ minWidth: 0 }}
-          >
-            {reaction.title}
-          </Typography>
-        )}
+        {/* Title が空なら反応式の文字列で代用する。noWrap で切れた分は title 属性でホバー表示 */}
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          noWrap
+          title={summary}
+          sx={{ minWidth: 0, fontStyle: reaction.title ? "normal" : "italic" }}
+        >
+          {summary}
+        </Typography>
 
         <Box sx={{ flexGrow: 1 }} />
 
@@ -139,13 +152,22 @@ function ReactionItem({ reaction, onEdit, onDelete }) {
                 <TableCell>Name</TableCell>
                 <TableCell>Role</TableCell>
                 <TableCell align="right">Equiv</TableCell>
+                {/* product は単離質量、それ以外は秤量値 */}
+                <TableCell align="right">Measured (mg)</TableCell>
                 <TableCell align="right">Yield (%)</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {reaction.components.map((comp) => (
                 <TableRow key={comp.id}>
-                  <TableCell>{comp.compound.name}</TableCell>
+                  <TableCell>
+                    {comp.compound.name}
+                    {componentNote(comp) && (
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        {componentNote(comp)}
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
@@ -156,6 +178,9 @@ function ReactionItem({ reaction, onEdit, onDelete }) {
                   </TableCell>
                   <TableCell align="right">
                     {comp.equiv != null ? comp.equiv.toFixed(2) : "–"}
+                  </TableCell>
+                  <TableCell align="right">
+                    {comp.measured_mg != null ? comp.measured_mg.toFixed(1) : "–"}
                   </TableCell>
                   <TableCell align="right">
                     {comp.yield_percent != null ? comp.yield_percent.toFixed(1) : "–"}

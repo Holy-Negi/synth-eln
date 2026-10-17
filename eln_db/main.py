@@ -28,7 +28,7 @@ from database import get_db
 from models import Compound, Reaction, ReactionComponent, Role
 from schemas import (
     CompoundCreate, CompoundRead, CompoundUpdate,
-    ReactionRead, ReactionCreate, ReactionUpdate,
+    ReactionRead, ReactionCreate, ReactionUpdate, ReactionComponentCreate,
     EquivalentRow
 )
 from chemistry import (
@@ -37,7 +37,7 @@ from chemistry import (
 )
 from search import SearchQueryError, resolve_patterns, filter_compounds, filter_reactions
 from crud import get_or_create_compound
-from stoichiometry import compute_equivalents
+from stoichiometry import compute_equivalents, apply_isolated_yields
 import pubchempy as pcp
 
 app = FastAPI()
@@ -97,13 +97,20 @@ def update_compound(compound_id: int, payload: CompoundUpdate, db: Session = Dep
     if obj is None:
         raise HTTPException(404, "compound not found")
     data = payload.model_dump(exclude_unset=True) # 送られた項目だけの辞書
-    # obj.key = val <= setattr(obj, key, val)
-    for key, val in data.items():
-        setattr(obj, key, val)
+    props = None
     if "smiles" in data:
         props = compute_properties(data["smiles"])
         if props is None:
             raise HTTPException(422, "invalid SMILES")
+        # InChIKey は一意制約。別の化合物と同じ構造になる変更は 409 で止める
+        duplicate = db.scalar(select(Compound).where(
+            Compound.inchikey == props["inchikey"], Compound.id != compound_id))
+        if duplicate is not None:
+            raise HTTPException(409, detail=f"same structure as existing compound: {duplicate.name}")
+    # obj.key = val <= setattr(obj, key, val)
+    for key, val in data.items():
+        setattr(obj, key, val)
+    if props is not None:
         for key in ["smiles", "inchikey", "mw", "exact_mass", "logp"]:
             setattr(obj, key, props[key])
     db.commit()
@@ -121,13 +128,10 @@ def delete_compound(compound_id: int, db: Session = Depends(get_db)):
     db.delete(obj)
     db.commit()
 
-@app.post("/reactions", response_model=ReactionRead, status_code=201)
-def create_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
-    reaction = Reaction(
-        exp_code=payload.exp_code, title=payload.title, date=payload.date,
-        scale=payload.scale, conc=payload.conc, temperature=payload.temperature, duration_h=payload.duration_h, note=payload.note,
-    )
-    for c in payload.components:
+def add_components(db: Session, reaction: Reaction, components: list[ReactionComponentCreate]):
+    """入力された成分を reaction に追加し、単離質量から収率を計算する"""
+    for c in components:
+        # 新規化合物のときに name / density も保存されるよう渡す
         compound, _ = get_or_create_compound(db, c.smiles, c.name, c.density)
         if compound is None:
             raise HTTPException(422, detail=f"invalid SMILES: {c.smiles}")
@@ -135,10 +139,21 @@ def create_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
         reaction.components.append(
             ReactionComponent(
                 compound=compound, role=c.role,
-                equiv=c.equiv, yield_percent=c.yield_percent,
-                solvent_ratio=c.solvent_ratio,
+                **c.model_dump(include={
+                    "equiv", "yield_percent", "solvent_ratio",
+                    "measured_mg", "purity_percent", "solution_molarity",
+                }),
             )
         )
+    apply_isolated_yields(reaction)
+
+@app.post("/reactions", response_model=ReactionRead, status_code=201)
+def create_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
+    reaction = Reaction(
+        exp_code=payload.exp_code, title=payload.title, date=payload.date,
+        scale=payload.scale, conc=payload.conc, temperature=payload.temperature, duration_h=payload.duration_h, note=payload.note,
+    )
+    add_components(db, reaction, payload.components)
     db.add(reaction)
     db.commit()
     db.refresh(reaction)
@@ -201,16 +216,7 @@ def update_reaction(reaction_id: int, payload: ReactionUpdate, db: Session = Dep
 
     # 成分は全消し→作り直し（cascade delete-orphan が古い行を削除）
     reaction.components.clear()
-    for c in payload.components:
-        # 新規化合物のときに name / density も保存されるよう、作成時と同じ引数を渡す
-        compound, _ = get_or_create_compound(db, c.smiles, c.name, c.density)
-        if compound is None:
-            raise HTTPException(422, detail=f"invalid SMILES: {c.smiles}")
-        reaction.components.append(
-            ReactionComponent(compound=compound, role=c.role,
-                              equiv=c.equiv, yield_percent=c.yield_percent,
-                              solvent_ratio=c.solvent_ratio)
-        )
+    add_components(db, reaction, payload.components)
     db.commit()
     db.refresh(reaction)
     return reaction

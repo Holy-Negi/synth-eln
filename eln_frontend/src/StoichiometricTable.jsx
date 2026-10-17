@@ -22,8 +22,17 @@ import {
 import StructureSearchBar from "./StructureSearchBar.jsx";
 import { API_BASE, buildUrl, fetchJson } from "./api.js";
 import { useToast } from "./useToast.js";
+import { fromComponent, toComponentPayload } from "./componentRows.js";
+import { schemeText } from "./reactionText.js";
 
-const fmt = (v, d) => (v == null ? "–" : v.toFixed(d)); // null は "–"、数値は桁数指定
+// ── 数値の整形。null は "–" ──
+// 有効数字 4 桁（桁区切りあり）
+const sig4 = new Intl.NumberFormat("en-US", { maximumSignificantDigits: 4 });
+// 小数点以下 d 桁
+const fixed = (d) => (v) => (v == null ? "–" : v.toFixed(d));
+// v は大きい単位（g / mL）の値。1 未満なら 1000 倍して小さい単位（mg / µL）で表示する
+const withUnit = (big, small) => (v) =>
+  v == null ? "–" : v >= 1 ? `${sig4.format(v)} ${big}` : `${sig4.format(v * 1000)} ${small}`;
 
 const POSITIVE_INPUT = { step: "any", min: 0 };
 
@@ -35,32 +44,25 @@ const ROLE_COLOR = {
   solvent: "default",
 };
 
-// 当量表の列定義。key は API（EquivalentRow）のフィールド名に対応する
+// 当量表の列定義。key は API（EquivalentRow）のフィールド名、format は表示用の整形関数
 const COLUMNS = [
-  { key: "mw", label: "MW", digits: 2 },
-  { key: "equiv", label: "Equiv", digits: 2 },
-  { key: "mmol", label: "mmol", digits: 3 },
-  { key: "mass_g", label: "Mass (g)", digits: 4 },
-  { key: "volume_ml", label: "Volume (mL)", digits: 3 },
-  { key: "yield_percent", label: "Yield (%)", digits: 1 },
-  { key: "actual_mass_g", label: "Actual (g)", digits: 4 },
+  { key: "mw", label: "MW", format: fixed(2) },
+  { key: "equiv", label: "Equiv", format: fixed(2) },
+  { key: "mmol", label: "mmol", format: (v) => (v == null ? "–" : sig4.format(v)) },
+  { key: "mass_g", label: "Mass", format: withUnit("g", "mg") },
+  { key: "volume_ml", label: "Volume", format: withUnit("mL", "µL") },
+  { key: "yield_percent", label: "Yield (%)", format: fixed(1) },
+  { key: "expected_mass_g", label: "Expected", format: withUnit("g", "mg") },
 ];
 
-// 指定した role の化合物名だけを取り出す
-const namesOf = (r, role) =>
-  r.components
-    .filter((c) => c.role === role)
-    .map((c) => c.compound.name)
-    .filter(Boolean);
-
-// 反応式の生成
-const schemeText = (r) => {
-  const left = namesOf(r, "reactant").join(" + ");
-  const right = namesOf(r, "product").join(" + ");
-  return (
-    [left, right].filter(Boolean).join(" → ") || "(reactant / product 未登録)"
-  );
-};
+// 名前の下に添える補足（純度・溶液濃度）
+const reagentNote = (row) =>
+  [
+    row.purity_percent != null && row.purity_percent < 100 && `${row.purity_percent}%`,
+    row.solution_molarity != null && `${row.solution_molarity} M soln`,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
 // Autocomplete の絞り込みに使う文字列
 const searchText = (r) =>
@@ -112,22 +114,11 @@ function RegisterFromEquivalents({
         temperature: sourceReaction.temperature,
         duration_h: sourceReaction.duration_h,
         note: `Cloned from ${sourceReaction.exp_code}`,
-        components: sourceReaction.components.map((c) => {
-          const isProduct = c.role === "product";
-          return {
-            name: c.compound.name, // ネストした化合物から名前と SMILES を取得
-            smiles: c.compound.smiles,
-            role: c.role,
-            equiv: c.equiv,
-            density: c.compound.density,
-            solvent_ratio: c.solvent_ratio,
-            yield_percent: isProduct
-              ? yieldP === ""
-                ? null
-                : Number(yieldP)
-              : null,
-          };
-        }),
+        // 条件（equiv・純度・溶液濃度・溶媒比）は引き継ぎ、実測値は新しい実験なので空にする。
+        // yield は product にだけ送られる
+        components: sourceReaction.components.map((c) =>
+          toComponentPayload({ ...fromComponent(c), measured: "", yield: yieldP }),
+        ),
       };
 
       const res = await fetch(`${API_BASE}/reactions`, {
@@ -400,7 +391,14 @@ function StoichiometricTable() {
               <TableBody>
                 {rows.map((row, i) => (
                   <TableRow key={i}>
-                    <TableCell>{row.name}</TableCell>
+                    <TableCell>
+                      {row.name}
+                      {reagentNote(row) && (
+                        <Typography variant="caption" color="text.secondary" component="div">
+                          {reagentNote(row)}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Chip
                         size="small"
@@ -411,7 +409,7 @@ function StoichiometricTable() {
                     </TableCell>
                     {COLUMNS.map((col) => (
                       <TableCell key={col.key} align="right">
-                        {fmt(row[col.key], col.digits)}
+                        {col.format(row[col.key])}
                       </TableCell>
                     ))}
                   </TableRow>

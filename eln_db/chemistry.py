@@ -1,10 +1,13 @@
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.Draw import rdMolDraw2D
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, rdDepictor
 from functools import lru_cache
 import logging
 import re
+
+# 2D 座標生成に CoordGen を使う（橋かけ環・縮環の重なりが減る）。プロセス全体の描画に効く
+rdDepictor.SetPreferCoordGen(True)
 
 # RDKitでSMILESからINCHIKeyやMolWtなどの物性情報を取得
 
@@ -36,6 +39,8 @@ def render_svg(smiles: str) -> str | None:
 
 # 矢印の上に描くagent（reagent / catalyst / solvent）が収まる高さの倍率
 AGENT_HEADROOM = 1.4
+# 自動サイズ時の描画倍率（RDKit 既定は 20）。CoordGen は分子がコンパクトになるので大きめにする
+SCALING_FACTOR = 30
 # 自動サイズが失敗したときの高さ。幅は自動計算のまま
 FALLBACK_HEIGHT = 140
 # 高さ固定でも失敗したときのサイズ
@@ -54,6 +59,8 @@ def _draw_reaction(reaction_smiles: str, width: int, height: int) -> str:
     """
     rxn = AllChem.ReactionFromSmarts(reaction_smiles, useSmiles=True)
     drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
+    # 自動サイズ（-1）のときの 1 結合長あたりのピクセル数。固定サイズでは無視される
+    drawer.drawOptions().scalingFactor = SCALING_FACTOR
     drawer.DrawReaction(rxn)
     drawer.FinishDrawing()
     return drawer.GetDrawingText()

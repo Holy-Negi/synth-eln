@@ -30,6 +30,9 @@ class ReactionComponent(Base):
     equiv: Mapped[float | None]
     yield_percent: Mapped[float | None]
     solvent_ratio: Mapped[float | None]  # 混合溶媒の体積比（solvent のみ。None は 1 として扱う）
+    measured_mg: Mapped[float | None]  # 実測質量。product は単離質量、それ以外は秤量値
+    purity_percent: Mapped[float | None]  # 試薬の純度。None は 100% として扱う
+    solution_molarity: Mapped[float | None]  # 溶液試薬の濃度 (mol/L)。None は neat
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     compound: Mapped["Compound"] = relationship(back_populates="components")
     reaction: Mapped["Reaction"] = relationship(back_populates="components")

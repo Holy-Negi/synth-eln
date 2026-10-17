@@ -42,6 +42,9 @@ class ReactionComponentCreate(BaseModel):
     yield_percent: float | None = None
     # gt=0: 0 以下を 422 で弾く（比率の合計で割るため）
     solvent_ratio: float | None = Field(default=None, gt=0)
+    measured_mg: float | None = Field(default=None, ge=0)
+    purity_percent: float | None = Field(default=None, gt=0, le=100)
+    solution_molarity: float | None = Field(default=None, gt=0)
 
 class ReactionCreate(BaseModel):
     exp_code: str
@@ -63,6 +66,9 @@ class ReactionComponentRead(BaseModel):
     equiv: float | None
     yield_percent: float | None
     solvent_ratio: float | None
+    measured_mg: float | None
+    purity_percent: float | None
+    solution_molarity: float | None
     model_config = {"from_attributes": True}
 
 class ReactionRead(BaseModel):
@@ -97,5 +103,7 @@ class EquivalentRow(BaseModel):
     mmol: float | None
     mass_g: float | None
     volume_ml: float | None
-    yield_percent: float | None = None   # product のみ（保存済みの実測収率）
-    actual_mass_g: float | None = None   # 理論収量 × 収率
+    purity_percent: float | None = None
+    solution_molarity: float | None = None
+    yield_percent: float | None = None     # product のみ（保存済みの実測収率）
+    expected_mass_g: float | None = None   # 理論収量 × 収率（この scale での見込み収量）
